@@ -3,15 +3,21 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tiny"
+name = "doer"
 version = "0.0.1"
-description = "Tiny - one file agent. strands-agents only. pipe-friendly."
+description = "doer — one-file pipe-native agent. strands-agents only."
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["strands-agents"]
+authors = [{name = "cagataycali"}]
+license = {text = "Apache-2.0"}
+
+[project.urls]
+Homepage = "https://github.com/cagataycali/doer"
 
 [project.scripts]
-tiny = "tiny:cli"
+doer = "doer:cli"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["tiny*"]
+include = ["doer*"]

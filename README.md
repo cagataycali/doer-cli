@@ -1,18 +1,34 @@
-# 🐣 tiny
+# doer
 
-One file. One agent. Pipe-friendly. Jack of all trades.
+one-file pipe-native agent. `strands-agents` only. ~60 LOC.
 
 ```bash
-pipx install tiny
-tiny "what's in this dir"
-cat error.log | tiny "summarize"
-echo "hello" | tiny | grep world
+pip install doer
+
+doer "list files modified today"
+echo "some text" | doer "summarize"
+git log -5 | doer "tldr"
 ```
 
-## Features
-- Single `__init__.py`, only `strands-agents` dep
-- 3 core tools: `shell` + `manage_tools` + `system_prompt`
-- Hot tool reload from `./tools/*.py`
-- Bash history injected into context
-- Agent responses posted back to bash history
-- Pipe-friendly stdin/stdout
+## python
+
+```python
+import doer
+doer("fix this bug")
+```
+
+## hot-reload tools
+
+drop a `@tool` fn in `./tools/*.py` — strands auto-loads it.
+
+```python
+# tools/greet.py
+from strands import tool
+
+@tool
+def greet(name: str) -> str:
+    """Say hi."""
+    return f"hi {name}!"
+```
+
+Apache-2.0.
