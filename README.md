@@ -1,6 +1,6 @@
 # doer
 
-one-file pipe-native agent. `strands-agents` only. ~60 LOC.
+one-file pipe-native agent. `strands-agents` only. ~100 LOC.
 
 ```bash
 pip install doer
