@@ -5,7 +5,7 @@
 - **lang:** python 3.10+
 - **dep:** `strands-agents[ollama]` (only)
 - **entry:** `doer/__init__.py` · 164 lines
-- **install:** `pip install doer` or download binary from releases
+- **install:** `pip install doer-cli` or download binary from releases
 - **license:** Apache-2.0
 
 ## architecture
@@ -86,4 +86,4 @@ git tag v0.2.0 && git push --tags
 - add more deps — every byte in the dep tree is scrutinized
 - add subcommands — `doer <query>` is the only interface
 - add config files — env vars are overkill for this tool
-- wrap in docker — it's 100MB, just `pip install doer`
+- wrap in docker — it's 100MB, just `pip install doer-cli`

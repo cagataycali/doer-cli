@@ -8,7 +8,7 @@
 
 **A Unix citizen that thinks. One file. One dep. Zero ceremony.**
 
-[![PyPI](https://img.shields.io/pypi/v/doer.svg?style=for-the-badge&color=FF3D00&labelColor=0A0A0A)](https://pypi.org/project/doer/)
+[![PyPI](https://img.shields.io/pypi/v/doer-cli.svg?style=for-the-badge&color=FF3D00&labelColor=0A0A0A)](https://pypi.org/project/doer-cli/)
 [![License](https://img.shields.io/badge/APACHE-2.0-FAFAF7?style=for-the-badge&labelColor=0A0A0A)](LICENSE)
 [![Python](https://img.shields.io/badge/PYTHON-3.10%2B-FAFAF7?style=for-the-badge&labelColor=0A0A0A)](https://python.org)
 
@@ -19,7 +19,8 @@
 ## install
 
 ```bash
-pip install doer
+pip install doer-cli    # package on PyPI
+doer                    # binary on your PATH
 ```
 
 ## run

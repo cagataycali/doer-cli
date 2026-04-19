@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "doer"
+name = "doer-cli"
 version = "0.2.0"
 description = "doer — one-file pipe-native agent. strands-agents + ollama only."
 readme = "README.md"
