@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tiny"
+version = "0.0.1"
+description = "Tiny - one file agent. strands-agents only. pipe-friendly."
+requires-python = ">=3.10"
+dependencies = ["strands-agents", "strands-agents-tools"]
+
+[project.scripts]
+tiny = "tiny:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tiny*"]
