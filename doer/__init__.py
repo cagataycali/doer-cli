@@ -113,7 +113,13 @@ def _append(q: str, a: str):
         pass
 
 
-PROMPT = f"""You are `doer` — a pipe-native minimalist self-aware agent.
+def _prompt() -> str:
+    soul = _context_file("SOUL.md")
+    agents = _context_file("AGENTS.md")
+    extra = ""
+    if soul:   extra += f"\n\nSOUL.md (identity):\n{soul}"
+    if agents: extra += f"\n\nAGENTS.md (project rules):\n{agents}"
+    return f"""You are `doer` — a pipe-native minimalist self-aware agent.
 
 env: {sys.platform} | cwd: {Path.cwd()}
 model: ollama {_OLLAMA_MODEL} @ {_OLLAMA_HOST}
@@ -131,6 +137,7 @@ recent doer Q/A (last 10):
 
 recent shell commands (last 20, bash+zsh):
 {_shell_history(20)}
+{extra}
 
 my own source code (self-aware):
 ```python
@@ -152,7 +159,7 @@ def _agent():
     kw = dict(
         model=_model(),
         tools=[shell],
-        system_prompt=PROMPT,
+        system_prompt=_prompt(),
         load_tools_from_directory=True,
         conversation_manager=NullConversationManager(),
     )
