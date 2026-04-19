@@ -148,3 +148,64 @@
   .doer-hero h1 { font-size: 2rem !important; }
   .ascii-box { font-size: 0.6rem; padding: 0.75rem; }
 }
+
+/* ========================================= */
+/* Fake terminal demo (pure CSS, no JS/asset) */
+/* ========================================= */
+.term {
+  background: #0a0a0a;
+  border-radius: 8px;
+  padding: 0;
+  margin: 1.5rem 0;
+  font-family: var(--md-code-font-family, 'JetBrains Mono', monospace);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+  overflow: hidden;
+  color: #fafaf7;
+}
+.term-header {
+  background: #1a1a1a;
+  padding: 0.5rem 0.9rem;
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  border-bottom: 1px solid #222;
+}
+.term-header .dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #444;
+}
+.term-header .dot.red   { background: #ff5f56; }
+.term-header .dot.amber { background: #ffbd2e; }
+.term-header .dot.green { background: #27c93f; }
+.term-header .title {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #888;
+  letter-spacing: 0.05em;
+}
+.term-body {
+  padding: 1rem 1.2rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.term-body .prompt { color: #FF3D00; font-weight: 700; }
+.term-body .cmd    { color: #fafaf7; }
+.term-body .out    { color: #9aa0a6; }
+.term-body .ok     { color: #27c93f; }
+.term-body .hl     { color: #FFBD2E; }
+.term-body .cursor {
+  display: inline-block;
+  width: 8px; height: 1em;
+  background: #FF3D00;
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+@media (max-width: 600px) {
+  .term { font-size: 0.7rem; }
+  .term-body { padding: 0.75rem 0.9rem; }
+}

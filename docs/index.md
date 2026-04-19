@@ -32,13 +32,37 @@ hide:
 
 ## 60-second taste
 
-```bash
-pipx install doer-cli
+<div class="term" markdown>
+<div class="term-header">
+  <span class="dot red"></span>
+  <span class="dot amber"></span>
+  <span class="dot green"></span>
+  <span class="title">~/projects — do</span>
+</div>
+<div class="term-body">
+<span class="prompt">$</span> <span class="cmd">pipx install doer-cli</span>
+<span class="out">installed package doer-cli 0.2.1, installed using Python 3.13</span>
+<span class="out">  · </span><span class="ok">do</span><span class="out">   (short form)</span>
+<span class="out">  · </span><span class="ok">doer</span><span class="out"> (long form)</span>
 
-do "find files larger than 100MB"
-cat error.log | do "what broke"
-git log -20   | do "write release notes"
-```
+<span class="prompt">$</span> <span class="cmd">do "find files larger than 100MB"</span>
+<span class="out">./video.mp4      412M
+./archive.tar.gz 168M
+./model.bin      124M</span>
+
+<span class="prompt">$</span> <span class="cmd">cat error.log | do "what broke"</span>
+<span class="out">redis connection timeout at 14:22 —
+likely the </span><span class="hl">REDIS_URL</span><span class="out"> env var is stale.</span>
+
+<span class="prompt">$</span> <span class="cmd">git log -20 | do "release notes"</span>
+<span class="out">### v0.2.1 — curl or pipx
+- new: </span><span class="hl">do</span><span class="out"> shortcut binary
+- fix: pypi package renamed to </span><span class="hl">doer-cli</span><span class="out">
+- docs: mkdocs-material, mobile-first</span>
+
+<span class="prompt">$</span> <span class="cursor"></span>
+</div>
+</div>
 
 ## why `doer`
 
