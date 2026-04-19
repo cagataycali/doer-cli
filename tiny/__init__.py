@@ -75,17 +75,63 @@ def system_prompt(action: str = "view", content: str = "") -> str:
 
 @tool
 def manage_tools(action: str = "list", code: str = "", name: str = "") -> str:
-    """Create/list hot-reloadable tools. action=create writes ./tools/<name>.py"""
+    """Manage hot-reloadable tools in ./tools/.
+    actions: list | create (needs name+code) | read (needs name) | delete (needs name)
+    Strands auto-reloads from ./tools/*.py — just drop a file with @tool decorated fn.
+    """
     tools_dir = Path.cwd() / "tools"
     tools_dir.mkdir(exist_ok=True)
     if action == "list":
-        return "\n".join(str(p) for p in tools_dir.glob("*.py")) or "(no tools)"
+        files = list(tools_dir.glob("*.py"))
+        return "\n".join(f.name for f in files) or "(no tools)"
     if action == "create":
         if not name or not code:
             return "need name + code"
         (tools_dir / f"{name}.py").write_text(code)
-        return f"created tools/{name}.py - hot-reload active"
-    return "actions: list|create"
+        return f"created tools/{name}.py — hot-reload active"
+    if action == "read":
+        f = tools_dir / f"{name}.py"
+        return f.read_text() if f.exists() else f"no tools/{name}.py"
+    if action == "delete":
+        f = tools_dir / f"{name}.py"
+        if f.exists():
+            f.unlink()
+            return f"deleted tools/{name}.py"
+        return f"no tools/{name}.py"
+    return "actions: list | create | read | delete"
+
+
+@tool
+def manage_messages(action: str = "list", n: int = 10) -> str:
+    """Inspect/manage agent conversation messages.
+    actions: list (last n) | count | clear | summary (role counts)
+    """
+    a = _agent
+    if a is None or not hasattr(a, "messages"):
+        return "(no agent yet)"
+    msgs = a.messages or []
+    if action == "count":
+        return str(len(msgs))
+    if action == "clear":
+        a.messages.clear()
+        return "cleared"
+    if action == "summary":
+        from collections import Counter
+        roles = Counter(m.get("role", "?") if isinstance(m, dict) else getattr(m, "role", "?") for m in msgs)
+        return f"total={len(msgs)} " + " ".join(f"{k}={v}" for k, v in roles.items())
+    if action == "list":
+        out = []
+        for i, m in enumerate(msgs[-n:]):
+            if isinstance(m, dict):
+                role = m.get("role", "?")
+                content = m.get("content", "")
+            else:
+                role = getattr(m, "role", "?")
+                content = getattr(m, "content", "")
+            s = str(content)[:200].replace("\n", " ")
+            out.append(f"[{i}] {role}: {s}")
+        return "\n".join(out) or "(empty)"
+    return "actions: list | count | clear | summary"
 
 
 # ---------- prompt ----------
@@ -130,7 +176,7 @@ def _get_agent():
         if not sys.stdin.isatty() or not sys.stdout.isatty():
             cb = null_callback_handler
         kwargs = dict(
-            tools=[shell, system_prompt, manage_tools],
+            tools=[shell, system_prompt, manage_tools, manage_messages],
             system_prompt=_build_prompt(),
             load_tools_from_directory=True,
         )
