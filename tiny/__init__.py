@@ -2,7 +2,7 @@
 """
 🐣 tiny - one file agent. jack of all trades. pipe-friendly.
 """
-import os, sys, time, threading
+import os, sys, time
 from pathlib import Path
 from datetime import datetime
 
@@ -89,23 +89,6 @@ def manage_tools(action: str = "list", code: str = "", name: str = "") -> str:
     return "actions: list|create"
 
 
-# ---------- hot reload ----------
-def _watch_tools(agent_ref):
-    tools_dir = Path.cwd() / "tools"
-    tools_dir.mkdir(exist_ok=True)
-    mtimes = {}
-    while True:
-        try:
-            for p in tools_dir.glob("*.py"):
-                m = p.stat().st_mtime
-                if mtimes.get(p) != m:
-                    mtimes[p] = m
-                    # strands load_tools_from_directory picks up automatically
-        except Exception:
-            pass
-        time.sleep(1)
-
-
 # ---------- prompt ----------
 def _build_prompt():
     hist = _read_history(30)
@@ -155,7 +138,7 @@ def _get_agent():
         if cb is not None:
             kwargs["callback_handler"] = cb
         _agent = Agent(**kwargs)
-        threading.Thread(target=_watch_tools, args=(_agent,), daemon=True).start()
+        # hot-reload handled natively by strands via load_tools_from_directory=True
     return _agent
 
 
