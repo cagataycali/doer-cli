@@ -81,3 +81,33 @@
   .doer-hero img { width: 100px; }
   .doer-hero .tag { font-size: 1.05rem; }
 }
+
+/* badges */
+.doer-badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+.doer-badges img { height: 24px; }
+
+/* grid cards (mkdocs-material feature) tighter */
+.md-typeset .grid.cards > :is(ul, ol) > li,
+.md-typeset .grid > .card {
+  border-color: var(--md-default-fg-color--lightest);
+  border-radius: 4px;
+}
+.md-typeset .grid.cards > :is(ul, ol) > li:hover,
+.md-typeset .grid > .card:hover {
+  border-color: var(--md-accent-fg-color);
+}
+
+/* make code blocks in tables not break */
+.md-typeset table code { white-space: nowrap; }
+
+/* hero spacing on large screens */
+@media (min-width: 1200px) {
+  .doer-hero { padding: 4rem 1rem 3rem; }
+  .doer-hero img { width: 160px; }
+}
