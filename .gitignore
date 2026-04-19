@@ -1,12 +1,10 @@
 __pycache__/
-*.egg-info/
 *.pyc
-.venv/
-tools/
-dist/
+*.pyo
+*.egg-info/
 build/
-*.spec
+dist/
+.venv/
+.DS_Store
+# mkdocs-built output (we don't use mkdocs anymore)
 site/
-*.build/
-*.dist/
-*.onefile-build/

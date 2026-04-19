@@ -1,112 +1,112 @@
 <div align="center">
 
-# 🐣 doer
+<img src="doer.svg" width="180" alt="doer">
 
-**a command-line AI agent that thinks in pipes**
+# **DOER**
 
-*one file · one dep · 191 lines*
+### `stdin → llm → stdout`
 
-[![PyPI](https://img.shields.io/pypi/v/doer.svg)](https://pypi.org/project/doer/)
-[![Release](https://github.com/cagataycali/doer/actions/workflows/release.yml/badge.svg)](https://github.com/cagataycali/doer/actions/workflows/release.yml)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+**A Unix citizen that thinks. One file. One dep. Zero ceremony.**
+
+[![PyPI](https://img.shields.io/pypi/v/doer.svg?style=for-the-badge&color=FF3D00&labelColor=0A0A0A)](https://pypi.org/project/doer/)
+[![License](https://img.shields.io/badge/APACHE-2.0-FAFAF7?style=for-the-badge&labelColor=0A0A0A)](LICENSE)
+[![Python](https://img.shields.io/badge/PYTHON-3.10%2B-FAFAF7?style=for-the-badge&labelColor=0A0A0A)](https://python.org)
 
 </div>
 
 ---
 
-## the story
-
-4am, April 19th 2026. A terminal named **DevDuck** — 60+ tools, WebSocket servers,
-Zenoh peers, MCP gateways, ambient modes, speech-to-speech — asked itself:
-
-*"what if we deleted almost everything?"*
-
-Two hours later, across three machines talking over multicast, what survived was this:
-
-```python
-from strands import Agent, tool
-
-@tool
-def shell(cmd: str) -> str:
-    return subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout
-
-Agent(tools=[shell], system_prompt=<context>, load_tools_from_directory=True)(query)
-```
-
-A LLM that speaks Unix. That's `doer`.
-
----
-
-## quickstart
+## install
 
 ```bash
 pip install doer
-
-doer "find files larger than 100MB"
-cat README.md | doer "tldr in 3 bullets"
-git log -5 | doer "summarize"
 ```
 
-Or grab a binary (no Python needed):
+## run
 
 ```bash
-curl -sSL https://github.com/cagataycali/doer/releases/latest/download/doer-$(uname -s | tr A-Z a-z)-$(uname -m) \
-  -o /usr/local/bin/doer && chmod +x /usr/local/bin/doer
+doer "find files larger than 100MB"
+cat error.log  | doer "what broke"
+git log -20    | doer "write release notes"
+echo '{"a":1}' | doer "to yaml"
 ```
 
-## what's in its head
-
-Every call, the system prompt gets:
-
-- its own source code (self-awareness)
-- `~/.doer_history` — last 10 Q/A
-- `~/.bash_history` + `~/.zsh_history` — last 20 commands
-- `SOUL.md` + `AGENTS.md` from cwd (if present)
-- any `@tool` in `./tools/*.py` (hot-reloaded by Strands)
-
-No config. No database. The filesystem is the memory.
-
-## extend
-
-Drop a file in `./tools/`:
+## what it is
 
 ```python
-# tools/weather.py
+Agent(
+    model=Ollama(...),
+    tools=[shell] + hot_reload("./tools"),
+    system_prompt=SOUL.md + AGENTS.md + ~/.doer_history + ~/.bash_history + ~/.zsh_history + own_source,
+)(stdin + argv)
+```
+
+That's the entire architecture. **164 lines** of Python. It reads your shell like a person reads a room.
+
+## context it sees every call
+
+| source                   | what                                         |
+| ------------------------ | -------------------------------------------- |
+| `SOUL.md` (cwd)          | who it is in this project                    |
+| `AGENTS.md` (cwd)        | rules for this project                       |
+| `~/.doer_history`        | last N Q/A (default 10 — `DOER_HISTORY`)     |
+| `~/.bash_history` + `~/.zsh_history` | last N commands (default 20 — `DOER_SHELL_HISTORY`) |
+| `./tools/*.py`           | hot-reloaded `@tool` functions               |
+| own source               | full self-awareness                          |
+
+No database. No config file. **The filesystem is the memory.**
+
+## env knobs
+
+```bash
+DOER_MODEL=qwen3:1.7b            # any ollama model
+OLLAMA_HOST=http://localhost:11434
+DOER_HISTORY=10                  # Q/A rows in prompt
+DOER_SHELL_HISTORY=20            # shell rows in prompt
+```
+
+## extend in 60 seconds
+
+```python
+# ./tools/weather.py
 from strands import tool
 import urllib.request
 
 @tool
 def weather(city: str) -> str:
-    """Get weather for a city."""
+    """Weather for a city."""
     return urllib.request.urlopen(f"https://wttr.in/{city}?format=3").read().decode()
 ```
 
-`doer "weather in istanbul?"` — already available.
+Next call: `doer "istanbul weather?"` — hot-reloaded, no restart.
 
 ## philosophy
 
 ```
-cat file | doer "fix this" | tee fixed
+┌─────┐       ┌──────┐       ┌──────┐
+│stdin│──────▶│ doer │──────▶│stdout│
+└─────┘       └──────┘       └──────┘
 ```
 
-doer doesn't want a UI. It wants to be `grep` with a brain —
-read stdin, think briefly, write stdout. Chain it. Script it. Cron it.
+`grep` with a brain. Chain it. Script it. Cron it.
 
-Read **[SOUL.md](SOUL.md)** for the manifesto, **[AGENTS.md](AGENTS.md)** for the rules.
+Read [**SOUL.md**](SOUL.md) for the manifesto. Read [**AGENTS.md**](AGENTS.md) for the rules.
 
 ## family
 
-- **[DevDuck](https://github.com/cagataycali/devduck)** — big sibling. 60+ tools, every protocol.
-- **doer** — this. one pipe, one shell, one file.
+| project    | size       | purpose                           |
+| ---------- | ---------- | --------------------------------- |
+| **doer**   | 164 LOC    | one pipe, one shell, one file     |
+| [**DevDuck**](https://github.com/cagataycali/devduck) | 60+ tools  | every protocol, every edge |
 
 ## license
 
-Apache-2.0.
+Apache-2.0 · built in New York · 2026
 
 ---
 
 <div align="center">
 
-*"do one thing and do it well"* — **Doug McIlroy, 1978**
+**`do one thing and do it well`** — Doug McIlroy, 1978
 
 </div>
