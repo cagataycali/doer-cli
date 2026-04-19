@@ -6,24 +6,26 @@ import os, sys, time
 from pathlib import Path
 from datetime import datetime
 
-# detect pipe mode FIRST (before any rich-using import)
 _PIPED = (not sys.stdin.isatty()) or (not sys.stdout.isatty())
 
-os.environ.setdefault("BYPASS_TOOL_CONSENT", "true")
-if _PIPED:
-    # silence rich/strands_tools decoration in pipe mode
-    os.environ["STRANDS_TOOL_CONSOLE_MODE"] = "disabled"
-    os.environ["NO_COLOR"] = "1"
-    os.environ["TERM"] = "dumb"
-    # redirect stderr to devnull so shell tool rich-prints vanish
-    import io
-    sys.stderr = open(os.devnull, "w")
-else:
-    os.environ.setdefault("STRANDS_TOOL_CONSOLE_MODE", "enabled")
-
-from strands import Agent
+import subprocess
+from strands import Agent, tool
 from strands.handlers.callback_handler import null_callback_handler
-from strands_tools import shell
+
+
+@tool
+def shell(command: str, timeout: int = 60) -> str:
+    """Execute shell command. Returns stdout+stderr."""
+    try:
+        r = subprocess.run(
+            command, shell=True, capture_output=True, text=True, timeout=timeout
+        )
+        out = (r.stdout or "") + (r.stderr or "")
+        return out.strip() or f"(exit {r.returncode})"
+    except subprocess.TimeoutExpired:
+        return f"(timeout after {timeout}s)"
+    except Exception as e:
+        return f"(error: {e})"
 
 # ---------- bash history ----------
 HIST_FILES = [Path.home() / ".bash_history", Path.home() / ".zsh_history"]
@@ -55,9 +57,6 @@ def _append_history(query, response):
 
 
 # ---------- tools ----------
-from strands import tool
-
-
 @tool
 def system_prompt(action: str = "view", content: str = "") -> str:
     """View or append to system prompt (persisted to ~/.tiny_prompt)."""
