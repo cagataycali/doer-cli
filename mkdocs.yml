@@ -5,8 +5,12 @@ repo_url: https://github.com/cagataycali/doer-cli
 repo_name: cagataycali/doer-cli
 copyright: Copyright © 2026 · Apache-2.0 · built in New York
 
+plugins:
+  - search
+
 theme:
   name: material
+  custom_dir: overrides
   logo: doer.svg
   favicon: doer.svg
   font:
@@ -43,6 +47,13 @@ extra_css:
   - assets/brand.css
 
 extra:
+  generator: false
+  tags:
+    - cli
+    - unix
+    - llm
+    - pipe
+    - ollama
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/cagataycali/doer-cli

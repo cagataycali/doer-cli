@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  <meta property="og:title" content="{% if page.title %}{{ page.title }} · {% endif %}DOER">
+  <meta property="og:description" content="A Unix citizen that thinks. stdin → llm → stdout. One file. One dep.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ page.canonical_url }}">
+  <meta property="og:image" content="https://doer.duck.nyc/doer.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% if page.title %}{{ page.title }} · {% endif %}DOER">
+  <meta name="twitter:description" content="A Unix citizen that thinks. stdin → llm → stdout.">
+  <meta name="twitter:image" content="https://doer.duck.nyc/doer.svg">
+  <meta name="keywords" content="cli, unix, llm, ollama, pipe, agent, terminal, ai, doer">
+  <meta name="author" content="cagataycali">
+  <meta name="theme-color" content="#FF3D00">
+{% endblock %}
