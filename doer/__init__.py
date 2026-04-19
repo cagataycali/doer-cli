@@ -7,9 +7,11 @@ os.environ.setdefault("BYPASS_TOOL_CONSENT", "true")
 _PIPED = not sys.stdin.isatty() or not sys.stdout.isatty()
 _HIST = Path.home() / ".doer_history"
 
-# ollama-only config (override via env)
+# config (override via env)
 _OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 _OLLAMA_MODEL = os.environ.get("DOER_MODEL", "qwen3:1.7b")
+_N_DOER = int(os.environ.get("DOER_HISTORY", "10"))    # doer Q/A pairs
+_N_SHELL = int(os.environ.get("DOER_SHELL_HISTORY", "20"))  # bash+zsh commands
 
 from strands import Agent, tool
 from strands.models.ollama import OllamaModel
@@ -30,78 +32,71 @@ def shell(cmd: str, timeout: int = 60) -> str:
 
 
 def _source():
-    """Read own source. Works both in dev and PyInstaller frozen binary."""
+    """Read own source. Works in dev and PyInstaller frozen binary."""
     try:
         if getattr(sys, "frozen", False):
             base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
-            for candidate in (base / "doer" / "__init__.py", base / "__init__.py"):
-                if candidate.exists():
-                    return candidate.read_text()
+            for c in (base / "doer" / "__init__.py", base / "__init__.py"):
+                if c.exists(): return c.read_text()
             return f"(frozen; source not bundled at {base})"
         return Path(__file__).read_text()
     except Exception as e:
         return f"(source unavailable: {e})"
 
 
-def _history(n: int = 20) -> str:
-    """Last n Q/A pairs from ~/.doer_history (zsh-style)."""
-    if not _HIST.exists():
-        return "(empty)"
+def _doer_history(n: int) -> str:
+    """Last n Q/A pairs from ~/.doer_history."""
+    if not _HIST.exists(): return "(empty)"
     try:
-        lines = _HIST.read_text(errors="ignore").splitlines()[-n * 2:]
         out = []
-        for ln in lines:
+        for ln in _HIST.read_text(errors="ignore").splitlines():
             if ":0;# doer_q:" in ln:
                 out.append(f"Q: {ln.split(':0;# doer_q:', 1)[1].strip()}")
             elif ":0;# doer_a:" in ln:
                 out.append(f"A: {ln.split(':0;# doer_a:', 1)[1].strip()}")
         return "\n".join(out[-n * 2:]) or "(empty)"
     except Exception as e:
-        return f"(hist err: {e})"
+        return f"(err: {e})"
 
 
-def _shell_history(n: int = 30) -> str:
-    """Last n commands from ~/.bash_history + ~/.zsh_history."""
+def _shell_history(n: int) -> str:
+    """Last n commands from ~/.bash_history + ~/.zsh_history (merged, chronological)."""
     entries = []
     home = Path.home()
     bh = home / ".bash_history"
     if bh.exists():
         try:
-            for ln in bh.read_text(errors="ignore").splitlines()[-n:]:
+            for ln in bh.read_text(errors="ignore").splitlines():
                 ln = ln.strip()
-                if ln: entries.append(("bash", None, ln))
+                if ln: entries.append(("bash", 0, ln))
         except Exception: pass
     zh = home / ".zsh_history"
     if zh.exists():
         try:
-            raw = zh.read_text(errors="ignore", encoding="utf-8")
-            for block in raw.split("\n: "):
+            for block in zh.read_text(errors="ignore").split("\n: "):
                 block = block.lstrip(": ").strip()
                 if ":0;" in block:
                     hdr, _, cmd = block.partition(":0;")
                     try: ts = int(hdr.split(":")[0])
-                    except: ts = None
+                    except: ts = 0
                     cmd = cmd.replace("\\\n", " ").strip()
                     if cmd: entries.append(("zsh", ts, cmd))
         except Exception: pass
-    entries.sort(key=lambda e: e[1] or 0)
-    tail = entries[-n:]
-    return "\n".join(f"[{src}] {cmd}" for src, _, cmd in tail) or "(empty)"
+    entries.sort(key=lambda e: e[1])
+    return "\n".join(f"[{s}] {c}" for s, _, c in entries[-n:]) or "(empty)"
 
 
-def _context_file(name: str) -> str:
-    """Read a context file from cwd if it exists (AGENTS.md, SOUL.md, etc)."""
+def _ctx(name: str) -> str:
+    """Read a context file from cwd."""
     f = Path.cwd() / name
     if f.exists() and f.is_file():
-        try:
-            return f.read_text(errors="ignore").strip()
-        except Exception as e:
-            return f"(err reading {name}: {e})"
+        try: return f.read_text(errors="ignore").strip()
+        except Exception as e: return f"(err reading {name}: {e})"
     return ""
 
 
 def _append(q: str, a: str):
-    """Append Q/A to bash-compatible history."""
+    """Append Q/A to history."""
     try:
         ts = int(time.time())
         a_flat = str(a).replace("\n", " ")[:1000]
@@ -109,62 +104,30 @@ def _append(q: str, a: str):
             f.write(f": {ts}:0;# doer_q: {q}\n")
             f.write(f": {ts}:0;# doer_a: {a_flat}\n")
         os.chmod(_HIST, 0o600)
-    except Exception:
-        pass
+    except Exception: pass
 
 
 def _prompt() -> str:
-    soul = _context_file("SOUL.md")
-    agents = _context_file("AGENTS.md")
-    extra = ""
-    if soul:   extra += f"\n\nSOUL.md (identity):\n{soul}"
-    if agents: extra += f"\n\nAGENTS.md (project rules):\n{agents}"
-    return f"""You are `doer` — a pipe-native minimalist self-aware agent.
-
-env: {sys.platform} | cwd: {Path.cwd()}
-model: ollama {_OLLAMA_MODEL} @ {_OLLAMA_HOST}
-my source file: {Path(__file__).resolve()}
-history file: {_HIST}
-
-rules:
-- terse. one-shot answers.
-- no markdown when piped.
-- use shell tool freely.
-- drop @tool fns in ./tools/*.py for hot-reload.
-
-recent doer Q/A (last 10):
-{_history(10)}
-
-recent shell commands (last 20, bash+zsh):
-{_shell_history(20)}
-{extra}
-
-my own source code (self-aware):
-```python
-{_source()}
-```
-"""
-
-
-def _model():
-    """Build Ollama model — the only supported provider."""
-    return OllamaModel(
-        host=_OLLAMA_HOST,
-        model_id=_OLLAMA_MODEL,
-        keep_alive="5m",
-    )
+    soul = _ctx("SOUL.md")
+    agents = _ctx("AGENTS.md")
+    parts = [f"env: {sys.platform} | cwd: {Path.cwd()} | model: ollama {_OLLAMA_MODEL} @ {_OLLAMA_HOST}"]
+    if soul:   parts.append(f"# SOUL.md\n{soul}")
+    if agents: parts.append(f"# AGENTS.md\n{agents}")
+    parts.append(f"# recent Q/A (last {_N_DOER})\n{_doer_history(_N_DOER)}")
+    parts.append(f"# recent shell (last {_N_SHELL}, bash+zsh)\n{_shell_history(_N_SHELL)}")
+    parts.append(f"# source ({Path(__file__).resolve()})\n```python\n{_source()}\n```")
+    return "\n\n".join(parts)
 
 
 def _agent():
     kw = dict(
-        model=_model(),
+        model=OllamaModel(host=_OLLAMA_HOST, model_id=_OLLAMA_MODEL, keep_alive="5m"),
         tools=[shell],
         system_prompt=_prompt(),
         load_tools_from_directory=True,
         conversation_manager=NullConversationManager(),
     )
-    if _PIPED:
-        kw["callback_handler"] = null_callback_handler
+    if _PIPED: kw["callback_handler"] = null_callback_handler
     return Agent(**kw)
 
 
@@ -188,8 +151,11 @@ def cli():
     q = "\n\n".join(x for x in [args, stdin] if x)
     if not q:
         print("usage: doer <query>   |   echo data | doer <query>", file=sys.stderr)
-        print(f"model: ollama {_OLLAMA_MODEL} @ {_OLLAMA_HOST}", file=sys.stderr)
-        print("override: DOER_MODEL=<name> OLLAMA_HOST=<url>", file=sys.stderr)
+        print(f"model:    ollama {_OLLAMA_MODEL} @ {_OLLAMA_HOST}", file=sys.stderr)
+        print(f"history:  {_N_DOER} Q/A pairs from {_HIST}", file=sys.stderr)
+        print(f"shell:    {_N_SHELL} cmds from ~/.bash_history + ~/.zsh_history", file=sys.stderr)
+        print(f"context:  SOUL.md + AGENTS.md from cwd (if present)", file=sys.stderr)
+        print(f"env:      DOER_MODEL, OLLAMA_HOST, DOER_HISTORY, DOER_SHELL_HISTORY", file=sys.stderr)
         sys.exit(1)
     print(str(ask(q)).strip())
 
