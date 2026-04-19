@@ -48,6 +48,38 @@ def _history(n: int = 20) -> str:
         return f"(hist err: {e})"
 
 
+def _shell_history(n: int = 30) -> str:
+    """Last n commands from ~/.bash_history + ~/.zsh_history."""
+    entries = []
+    home = Path.home()
+    # bash: plain lines
+    bh = home / ".bash_history"
+    if bh.exists():
+        try:
+            for ln in bh.read_text(errors="ignore").splitlines()[-n:]:
+                ln = ln.strip()
+                if ln: entries.append(("bash", None, ln))
+        except Exception: pass
+    # zsh: `: ts:0;cmd` (may span multi-line with trailing `\\`)
+    zh = home / ".zsh_history"
+    if zh.exists():
+        try:
+            raw = zh.read_text(errors="ignore", encoding="utf-8")
+            for block in raw.split("\n: "):
+                block = block.lstrip(": ").strip()
+                if ":0;" in block:
+                    hdr, _, cmd = block.partition(":0;")
+                    try: ts = int(hdr.split(":")[0])
+                    except: ts = None
+                    cmd = cmd.replace("\\\n", " ").strip()
+                    if cmd: entries.append(("zsh", ts, cmd))
+        except Exception: pass
+    # sort by ts when possible, fallback to file order
+    entries.sort(key=lambda e: e[1] or 0)
+    tail = entries[-n:]
+    return "\n".join(f"[{src}] {cmd}" for src, _, cmd in tail) or "(empty)"
+
+
 def _append(q: str, a: str):
     """Append Q/A to bash-compatible history."""
     try:
@@ -73,8 +105,11 @@ rules:
 - use shell tool freely.
 - drop @tool fns in ./tools/*.py for hot-reload.
 
-recent history (last 10 interactions):
+recent doer Q/A (last 10):
 {_history(10)}
+
+recent shell commands (last 20, bash+zsh):
+{_shell_history(20)}
 
 my own source code (self-aware):
 ```python
