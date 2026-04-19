@@ -8,6 +8,7 @@ _PIPED = not sys.stdin.isatty() or not sys.stdout.isatty()
 
 from strands import Agent, tool
 from strands.handlers.callback_handler import null_callback_handler
+from strands.agent.conversation_manager import NullConversationManager
 
 
 @tool
@@ -35,7 +36,7 @@ rules:
 
 
 def _agent():
-    kw = dict(tools=[shell], system_prompt=PROMPT, load_tools_from_directory=True)
+    kw = dict(tools=[shell], system_prompt=PROMPT, load_tools_from_directory=True, conversation_manager=NullConversationManager())
     if _PIPED:
         kw["callback_handler"] = null_callback_handler
     return Agent(**kw)
