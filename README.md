@@ -74,14 +74,42 @@ That's the entire architecture. **164 lines** of Python. It reads your shell lik
 
 No database. No config file. **The filesystem is the memory.**
 
+## providers
+
+Auto-picked by what's on your machine.
+
+```bash
+# Bedrock (default when AWS creds exist) — Claude Opus 4.7, 1M ctx, 128k out
+export AWS_BEARER_TOKEN_BEDROCK=...   # or standard AWS_* creds
+do "review this" < diff.patch
+
+# Ollama (fallback) — local, private, no keys
+ollama serve & ollama pull qwen3:1.7b
+DOER_PROVIDER=ollama do "quick ping"
+```
+
 ## env knobs
 
 ```bash
-DOER_MODEL=qwen3:1.7b            # any ollama model
+# provider selection
+DOER_PROVIDER=                   # "" (auto) | "bedrock" | "ollama"
+
+# bedrock (defaults tuned for Claude Opus 4.7)
+DOER_BEDROCK_MODEL=global.anthropic.claude-opus-4-7
+DOER_BEDROCK_REGION=us-west-2
+DOER_MAX_TOKENS=128000           # Opus 4.7 native max
+DOER_ANTHROPIC_BETA=context-1m-2025-08-07   # auto on Claude — "" to disable
+
+# ollama
+DOER_MODEL=qwen3:1.7b
 OLLAMA_HOST=http://localhost:11434
+
+# context
 DOER_HISTORY=10                  # Q/A rows in prompt
 DOER_SHELL_HISTORY=20            # shell rows in prompt
 ```
+
+> **Opus 4.7 heads-up:** `temperature` / `top_p` return 400 on any non-default value — `doer` only sends them when you explicitly set `DOER_TEMPERATURE` / `DOER_TOP_P`.
 
 ## extend in 60 seconds
 

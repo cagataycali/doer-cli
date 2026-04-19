@@ -50,24 +50,45 @@ tail -200 sales.csv | do "top 3 customers by revenue" | mail -s "weekly" boss@co
 
 No config file. Every knob is an env var. Put them in your `.zshrc`/`.bashrc` or inline.
 
-| var                    | default                  | purpose                             |
-| ---------------------- | ------------------------ | ----------------------------------- |
-| `DOER_MODEL`           | `qwen3:1.7b`             | any model Ollama can run            |
-| `OLLAMA_HOST`          | `http://localhost:11434` | point at a remote Ollama            |
-| `DOER_HISTORY`         | `10`                     | Q/A pairs injected into prompt      |
-| `DOER_SHELL_HISTORY`   | `20`                     | shell history lines in prompt       |
-| `DOER_MAX_TOKENS`      | model default            | cap output length                   |
+| var                    | default                                      | purpose                             |
+| ---------------------- | -------------------------------------------- | ----------------------------------- |
+| `DOER_PROVIDER`        | *(auto: bedrock if AWS creds, else ollama)*  | `bedrock` \| `ollama`               |
+| `DOER_HISTORY`         | `10`                                         | Q/A pairs injected into prompt      |
+| `DOER_SHELL_HISTORY`   | `20`                                         | shell history lines in prompt       |
+| **Bedrock**            |                                              |                                     |
+| `DOER_BEDROCK_MODEL`   | `global.anthropic.claude-opus-4-7`           | bedrock model id or inference profile |
+| `DOER_BEDROCK_REGION`  | `us-west-2`                                  | bedrock region                      |
+| `DOER_ANTHROPIC_BETA`  | `context-1m-2025-08-07` *(Claude only)*      | comma-sep `anthropic_beta` headers  |
+| `DOER_MAX_TOKENS`      | `128000` (Opus 4.7 native max)               | cap output length                   |
+| `DOER_TEMPERATURE`     | *(unset — Opus 4.7 rejects non-default)*     | sampling temperature                |
+| `DOER_TOP_P`           | *(unset — Opus 4.7 rejects non-default)*     | nucleus sampling                    |
+| `DOER_CACHE_PROMPT`    | *(unset)*                                    | enable prompt caching               |
+| `AWS_BEARER_TOKEN_BEDROCK` | *(preferred)*                            | bedrock bearer token                |
+| **Ollama**             |                                              |                                     |
+| `DOER_MODEL`           | `qwen3:1.7b`                                 | any model Ollama can run            |
+| `OLLAMA_HOST`          | `http://localhost:11434`                     | point at a remote Ollama            |
 
 ```bash
-# faster little model
-DOER_MODEL=qwen3:0.5b  do "summarize this" < README.md
+# default: Claude Opus 4.7 on Bedrock (1M context, 128k output)
+do "review this pull request" < diff.patch
 
-# bigger brain for tougher queries
-DOER_MODEL=qwen3:4b    do "rewrite this function idiomatic" < utils.py
+# force ollama for offline/private work
+DOER_PROVIDER=ollama DOER_MODEL=qwen3:4b do "rewrite idiomatic" < utils.py
+
+# pin a specific Bedrock model (Sonnet 4 for cost savings)
+DOER_BEDROCK_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0 do "summarize"
+
+# disable the 1M context beta (saves a header, ≤200k ctx)
+DOER_ANTHROPIC_BETA="" do "short one"
 
 # remote ollama (on your beefy box)
-OLLAMA_HOST=http://gpu-box:11434 do "explain this codebase"
+OLLAMA_HOST=http://gpu-box:11434 DOER_PROVIDER=ollama do "explain this codebase"
 ```
+
+!!! warning "Opus 4.7 breaking changes"
+    - `temperature` / `top_p` **are not sent by default** — Opus 4.7 returns 400 on any non-default value.
+    - `output-300k-2026-03-24` (seen in SDKs) is **not yet accepted by Bedrock**. Opus 4.7's real cap is **128k** — `doer` defaults to that.
+    - Both issues go away for older models (Sonnet 4, Opus 4.6) — just pin `DOER_BEDROCK_MODEL`.
 
 ## when to use which binary
 

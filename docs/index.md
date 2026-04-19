@@ -41,7 +41,7 @@ hide:
 </div>
 <div class="term-body">
 <span class="prompt">$</span> <span class="cmd">pipx install doer-cli</span>
-<span class="out">installed package doer-cli 0.2.1, installed using Python 3.13</span>
+<span class="out">installed package doer-cli 0.3.0, installed using Python 3.13</span>
 <span class="out">  · </span><span class="ok">do</span><span class="out">   (short form)</span>
 <span class="out">  · </span><span class="ok">doer</span><span class="out"> (long form)</span>
 
@@ -55,10 +55,10 @@ hide:
 likely the </span><span class="hl">REDIS_URL</span><span class="out"> env var is stale.</span>
 
 <span class="prompt">$</span> <span class="cmd">git log -20 | do "release notes"</span>
-<span class="out">### v0.2.1 — curl or pipx
-- new: </span><span class="hl">do</span><span class="out"> shortcut binary
-- fix: pypi package renamed to </span><span class="hl">doer-cli</span><span class="out">
-- docs: mkdocs-material, mobile-first</span>
+<span class="out">### v0.3.0 — frontier by default
+- new: bedrock default, </span><span class="hl">Claude Opus 4.7</span><span class="out"> + 1M ctx
+- new: auto-detect provider (bedrock → ollama)
+- new: </span><span class="hl">DOER_PROVIDER</span><span class="out">, </span><span class="hl">DOER_BEDROCK_*</span><span class="out"> knobs</span>
 
 <span class="prompt">$</span> <span class="cursor"></span>
 </div>

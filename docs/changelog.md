@@ -2,6 +2,16 @@
 
 Compressed history. Newest first.
 
+## v0.3.0 — *frontier by default*
+
+- **Default model**: `global.anthropic.claude-opus-4-7` on Bedrock (was Ollama-only)
+- **Auto-detect provider** — Bedrock if AWS creds exist, else Ollama fallback
+- **1M context window** auto-enabled via `context-1m-2025-08-07` beta header
+- **128k max output** (Opus 4.7 native cap; raise via `DOER_MAX_TOKENS`)
+- Opt-in `temperature` / `top_p` — Opus 4.7+ rejects non-default sampling, so doer skips them unless explicitly set
+- New env knobs: `DOER_PROVIDER`, `DOER_BEDROCK_MODEL`, `DOER_BEDROCK_REGION`, `DOER_ANTHROPIC_BETA`, `DOER_ADDITIONAL_REQUEST_FIELDS`
+- 221 LOC (up from 164) — still one file, still one dep
+
 ## v0.2.1 — *curl or pipx*
 
 - `do` shortcut alongside `doer` (less typing)
