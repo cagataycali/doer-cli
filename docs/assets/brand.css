@@ -111,3 +111,40 @@
   .doer-hero { padding: 4rem 1rem 3rem; }
   .doer-hero img { width: 160px; }
 }
+
+/* stronger mobile fixes */
+@media (max-width: 600px) {
+  /* Hero title compress */
+  .doer-hero h1 { font-size: 2.5rem !important; letter-spacing: -0.02em; }
+  .doer-hero .flow { font-size: 1rem; }
+  .doer-hero .tag { font-size: 0.95rem; line-height: 1.5; }
+
+  /* CTA buttons stack cleanly */
+  .doer-cta {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0 1rem;
+  }
+  .doer-cta a { width: 100%; text-align: center; box-sizing: border-box; }
+
+  /* ASCII box scrolls but smaller */
+  .ascii-box { font-size: 0.7rem; padding: 1rem; }
+
+  /* Badges smaller */
+  .doer-badges img { height: 20px; }
+
+  /* Tables don't overflow on tiny screens */
+  .md-typeset table:not([class]) { font-size: 0.75rem; }
+  .md-typeset table code { white-space: normal; word-break: break-word; }
+
+  /* Code blocks can scroll horizontally on mobile */
+  .md-typeset pre { font-size: 0.8rem; }
+  .md-typeset code { word-break: break-word; }
+}
+
+/* extra tiny (<380px, old iphones SE etc.) */
+@media (max-width: 380px) {
+  .doer-hero h1 { font-size: 2rem !important; }
+  .ascii-box { font-size: 0.6rem; padding: 0.75rem; }
+}
