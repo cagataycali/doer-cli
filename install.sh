@@ -17,7 +17,7 @@ case "$OS-$ARCH" in
   darwin-arm64)    ASSET="doer-darwin-arm64" ;;
   darwin-x86_64)   ASSET="doer-darwin-x86_64" ;;
   linux-x86_64)    ASSET="doer-linux-x86_64" ;;
-  linux-aarch64)   ASSET="doer-linux-aarch64" ;;
+  linux-aarch64)   echo "no prebuilt for linux-aarch64 yet; use: pipx install doer-cli" >&2; exit 1 ;;
   *) echo "unsupported platform: $OS-$ARCH" >&2
      echo "fallback: pipx install doer-cli" >&2
      exit 1 ;;
