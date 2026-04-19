@@ -4,16 +4,28 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "doer"
-version = "0.0.1"
-description = "doer — one-file pipe-native agent. strands-agents only."
+version = "0.0.2"
+description = "doer — one-file pipe-native agent. strands-agents + ollama only."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["strands-agents"]
+dependencies = [
+    "strands-agents[ollama]",
+]
 authors = [{name = "cagataycali"}]
 license = {text = "Apache-2.0"}
+keywords = ["ai", "agent", "ollama", "cli", "pipe", "unix"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Utilities",
+]
 
 [project.urls]
 Homepage = "https://github.com/cagataycali/doer"
+Documentation = "https://doer.duck.nyc"
+Issues = "https://github.com/cagataycali/doer/issues"
 
 [project.scripts]
 doer = "doer:cli"

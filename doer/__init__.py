@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""doer — one-file pipe-native self-aware agent. strands-agents only."""
+"""doer — one-file pipe-native self-aware agent. strands-agents + ollama only."""
 import os, sys, subprocess, time
 from pathlib import Path
 
@@ -7,7 +7,12 @@ os.environ.setdefault("BYPASS_TOOL_CONSENT", "true")
 _PIPED = not sys.stdin.isatty() or not sys.stdout.isatty()
 _HIST = Path.home() / ".doer_history"
 
+# ollama-only config (override via env)
+_OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+_OLLAMA_MODEL = os.environ.get("DOER_MODEL", "qwen3.5:0.8b")
+
 from strands import Agent, tool
+from strands.models.ollama import OllamaModel
 from strands.handlers.callback_handler import null_callback_handler
 from strands.agent.conversation_manager import NullConversationManager
 
@@ -28,7 +33,6 @@ def _source():
     """Read own source. Works both in dev and PyInstaller frozen binary."""
     try:
         if getattr(sys, "frozen", False):
-            # PyInstaller: source bundled in _MEIPASS
             base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
             for candidate in (base / "doer" / "__init__.py", base / "__init__.py"):
                 if candidate.exists():
@@ -60,7 +64,6 @@ def _shell_history(n: int = 30) -> str:
     """Last n commands from ~/.bash_history + ~/.zsh_history."""
     entries = []
     home = Path.home()
-    # bash: plain lines
     bh = home / ".bash_history"
     if bh.exists():
         try:
@@ -68,7 +71,6 @@ def _shell_history(n: int = 30) -> str:
                 ln = ln.strip()
                 if ln: entries.append(("bash", None, ln))
         except Exception: pass
-    # zsh: `: ts:0;cmd` (may span multi-line with trailing `\\`)
     zh = home / ".zsh_history"
     if zh.exists():
         try:
@@ -82,7 +84,6 @@ def _shell_history(n: int = 30) -> str:
                     cmd = cmd.replace("\\\n", " ").strip()
                     if cmd: entries.append(("zsh", ts, cmd))
         except Exception: pass
-    # sort by ts when possible, fallback to file order
     entries.sort(key=lambda e: e[1] or 0)
     tail = entries[-n:]
     return "\n".join(f"[{src}] {cmd}" for src, _, cmd in tail) or "(empty)"
@@ -104,6 +105,7 @@ def _append(q: str, a: str):
 PROMPT = f"""You are `doer` — a pipe-native minimalist self-aware agent.
 
 env: {sys.platform} | cwd: {Path.cwd()}
+model: ollama {_OLLAMA_MODEL} @ {_OLLAMA_HOST}
 my source file: {Path(__file__).resolve()}
 history file: {_HIST}
 
@@ -126,8 +128,18 @@ my own source code (self-aware):
 """
 
 
+def _model():
+    """Build Ollama model — the only supported provider."""
+    return OllamaModel(
+        host=_OLLAMA_HOST,
+        model_id=_OLLAMA_MODEL,
+        keep_alive="5m",
+    )
+
+
 def _agent():
     kw = dict(
+        model=_model(),
         tools=[shell],
         system_prompt=PROMPT,
         load_tools_from_directory=True,
@@ -158,6 +170,8 @@ def cli():
     q = "\n\n".join(x for x in [args, stdin] if x)
     if not q:
         print("usage: doer <query>   |   echo data | doer <query>", file=sys.stderr)
+        print(f"model: ollama {_OLLAMA_MODEL} @ {_OLLAMA_HOST}", file=sys.stderr)
+        print("override: DOER_MODEL=<name> OLLAMA_HOST=<url>", file=sys.stderr)
         sys.exit(1)
     print(str(ask(q)).strip())
 

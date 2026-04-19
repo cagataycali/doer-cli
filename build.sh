@@ -1,24 +1,32 @@
 #!/usr/bin/env bash
-# build.sh — create standalone `doer` binary via PyInstaller
+# build.sh — create standalone `doer` binary via PyInstaller (+ optional UPX)
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
 PLATFORM="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
-OUT="dist/doer-${PLATFORM}"
+NAME="doer-${PLATFORM}"
 
-echo "🦆 building doer for ${PLATFORM}..."
+echo "🦆 building ${NAME}..."
 
-# ensure deps
 python3 -m pip install --quiet --upgrade pip pyinstaller strands-agents
 
-# build
+UPX_ARGS=()
+if command -v upx >/dev/null 2>&1; then
+  UPX_DIR="$(dirname "$(command -v upx)")"
+  UPX_ARGS=(--upx-dir "${UPX_DIR}")
+  echo "🗜  UPX: $(upx --version | head -1)"
+else
+  echo "⚠  upx not found — skipping compression"
+fi
+
 python3 -m PyInstaller \
   --onefile \
-  --name "doer-${PLATFORM}" \
+  --name "${NAME}" \
   --clean \
   --noconfirm \
   --strip \
+  "${UPX_ARGS[@]}" \
   --add-data "doer/__init__.py:doer" \
   --hidden-import strands \
   --hidden-import strands.handlers.callback_handler \
@@ -26,5 +34,5 @@ python3 -m PyInstaller \
   --collect-all strands \
   doer/__init__.py
 
-ls -lh "dist/doer-${PLATFORM}"
-echo "✅ binary: $(pwd)/dist/doer-${PLATFORM}"
+ls -lh "dist/${NAME}"
+echo "✅ binary: $(pwd)/dist/${NAME}"

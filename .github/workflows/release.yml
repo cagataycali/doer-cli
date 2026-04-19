@@ -1,48 +1,155 @@
-name: Release binaries
+name: Release
 
 on:
   push:
-    tags: ['v*']
-  workflow_dispatch:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  id-token: write
 
 jobs:
-  build:
+  pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tooling
+        run: pip install --upgrade build twine
+
+      - name: Extract version
+        id: ver
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build sdist + wheel
+        run: python -m build
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload dist/*
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: dist/*
+
+  binaries:
+    name: Build binary (${{ matrix.name }})
+    needs: pypi
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             name: linux-x86_64
-          - os: macos-13       # intel
+            asset: doer-linux-x86_64
+          - os: macos-13            # intel
             name: darwin-x86_64
-          - os: macos-14       # apple silicon
+            asset: doer-darwin-x86_64
+          - os: macos-14            # apple silicon
             name: darwin-arm64
+            asset: doer-darwin-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.13' }
-      - run: pip install pyinstaller strands-agents
-      - name: build
-        run: |
-          pyinstaller --onefile --name doer-${{ matrix.name }} \
-            --clean --noconfirm \
-            --add-data "doer/__init__.py:doer" \
-            --collect-all strands \
-            doer/__init__.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: doer-${{ matrix.name }}
-          path: dist/doer-${{ matrix.name }}*
 
-  release:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions: { contents: write }
-    steps:
-      - uses: actions/download-artifact@v4
-        with: { path: dist }
-      - uses: softprops/action-gh-release@v2
+      - uses: actions/setup-python@v5
         with:
-          files: dist/**/doer-*
+          python-version: '3.12'
+
+      - name: Install UPX (linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y upx-ucl
+
+      - name: Install UPX (macos)
+        if: runner.os == 'macOS'
+        run: brew install upx || true
+
+      - name: Build binary
+        run: |
+          chmod +x ./build.sh
+          ./build.sh
+
+      - name: Rename for asset consistency
+        run: |
+          cd dist
+          # build.sh names output doer-<platform>; ensure match
+          mv doer-* "${{ matrix.asset }}" 2>/dev/null || true
+          ls -la
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+
+  github-release:
+    name: Create GitHub Release
+    needs: [pypi, binaries]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: ver
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release
+          find artifacts -type f \( -name 'doer-*' -o -name '*.whl' -o -name '*.tar.gz' \) \
+            -exec cp {} release/ \;
+          ls -la release/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: doer ${{ github.ref_name }}
+          body: |
+            ## 🦆 doer ${{ github.ref_name }}
+
+            One-file pipe-native minimalist AI agent.
+
+            ### Install from PyPI
+            ```bash
+            pip install doer==${{ steps.ver.outputs.version }}
+            ```
+
+            ### Standalone binary (no Python)
+            ```bash
+            curl -sSL https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/doer-$(uname -s | tr A-Z a-z)-$(uname -m) -o /usr/local/bin/doer
+            chmod +x /usr/local/bin/doer
+            ```
+
+            **Binaries attached:**
+            - `doer-linux-x86_64`
+            - `doer-darwin-x86_64` (Intel)
+            - `doer-darwin-arm64` (Apple Silicon)
+
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/...${{ github.ref_name }}
+          files: release/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
