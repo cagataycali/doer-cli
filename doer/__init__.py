@@ -23,6 +23,14 @@ def shell(cmd: str, timeout: int = 60) -> str:
         return f"(err: {e})"
 
 
+def _source():
+    """Read own source for self-awareness."""
+    try:
+        return Path(__file__).read_text()
+    except Exception as e:
+        return f"(source unavailable: {e})"
+
+
 PROMPT = f"""You are `doer` — a pipe-native minimalist agent.
 
 env: {sys.platform} | cwd: {Path.cwd()}
@@ -32,6 +40,11 @@ rules:
 - no markdown when piped.
 - use shell tool freely.
 - drop @tool fns in ./tools/*.py for hot-reload.
+
+your own source code (self-aware):
+```python
+{_source()}
+```
 """
 
 
