@@ -7,3 +7,6 @@ dist/
 build/
 *.spec
 site/
+*.build/
+*.dist/
+*.onefile-build/

@@ -163,3 +163,35 @@ Full guide: **[doer.duck.nyc](https://doer.duck.nyc)**
 ## License
 
 Apache-2.0
+
+## install
+
+### via pip (needs python 3.10+)
+
+```bash
+pip install doer
+```
+
+### as binary (no python needed)
+
+two flavors, pick one:
+
+- **PyInstaller** — fast build, ~93MB (Linux UPX-compressed ~40MB)
+- **Nuitka** — native compile, ~60MB, faster runtime
+
+```bash
+# one-liner (PyInstaller build — default)
+curl -sSL https://github.com/cagataycali/doer/releases/latest/download/doer-$(uname -s | tr A-Z a-z)-$(uname -m) -o /usr/local/bin/doer
+chmod +x /usr/local/bin/doer
+
+# or Nuitka (faster startup, smaller)
+curl -sSL https://github.com/cagataycali/doer/releases/latest/download/doer-nuitka-$(uname -s | tr A-Z a-z)-$(uname -m) -o /usr/local/bin/doer
+chmod +x /usr/local/bin/doer
+```
+
+### build yourself
+
+```bash
+./build.sh          # PyInstaller (+ UPX on Linux)
+./build-nuitka.sh   # Nuitka native compile (slower build, 3-8 min)
+```

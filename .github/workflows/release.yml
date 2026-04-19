@@ -2,154 +2,111 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
-
-permissions:
-  contents: write
-  id-token: write
+    tags: ['v*']
+  workflow_dispatch:
 
 jobs:
-  pypi:
-    name: Publish to PyPI
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install build tooling
-        run: pip install --upgrade build twine
-
-      - name: Extract version
-        id: ver
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Build sdist + wheel
-        run: python -m build
-
-      - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: twine upload dist/*
-
-      - name: Upload dist artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-dist
-          path: dist/*
-
-  binaries:
-    name: Build binary (${{ matrix.name }})
-    needs: pypi
+  # --- PyInstaller binaries (fast, all platforms) ---
+  pyinstaller:
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             name: linux-x86_64
-            asset: doer-linux-x86_64
-          - os: macos-13            # intel
+            use_upx: true
+          - os: macos-13
             name: darwin-x86_64
-            asset: doer-darwin-x86_64
-          - os: macos-14            # apple silicon
+            use_upx: false  # UPX breaks mach-o signatures
+          - os: macos-14
             name: darwin-arm64
-            asset: doer-darwin-arm64
+            use_upx: false
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+        with: { python-version: '3.13' }
 
-      - name: Install UPX (linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y upx-ucl
+      - name: Install UPX (Linux only)
+        if: matrix.use_upx
+        run: sudo apt-get update && sudo apt-get install -y upx
 
-      - name: Install UPX (macos)
-        if: runner.os == 'macOS'
-        run: brew install upx || true
+      - run: pip install pyinstaller strands-agents
 
-      - name: Build binary
+      - name: Build with PyInstaller
         run: |
-          chmod +x ./build.sh
-          ./build.sh
+          UPX_FLAG=""
+          if [ "${{ matrix.use_upx }}" = "true" ]; then
+            UPX_FLAG="--upx-dir=$(dirname $(which upx))"
+          fi
+          pyinstaller --onefile --name doer-${{ matrix.name }} \
+            --clean --noconfirm --strip $UPX_FLAG \
+            --add-data "doer/__init__.py:doer" \
+            --collect-all strands \
+            doer/__init__.py
 
-      - name: Rename for asset consistency
-        run: |
-          cd dist
-          # build.sh names output doer-<platform>; ensure match
-          mv doer-* "${{ matrix.asset }}" 2>/dev/null || true
-          ls -la
-
-      - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.asset }}
-          path: dist/${{ matrix.asset }}
+          name: doer-${{ matrix.name }}
+          path: dist/doer-${{ matrix.name }}*
 
-  github-release:
-    name: Create GitHub Release
-    needs: [pypi, binaries]
+  # --- Nuitka binaries (slower, faster runtime, Linux + macOS) ---
+  nuitka:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x86_64
+          - os: macos-14
+            name: darwin-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.13' }
+      - run: pip install nuitka ordered-set strands-agents
+
+      - name: Nuitka compile
+        run: |
+          python -m nuitka --onefile --standalone --follow-imports \
+            --include-package=strands --include-package-data=strands \
+            --include-data-file=doer/__init__.py=doer/__init__.py \
+            --output-dir=dist --output-filename=doer-nuitka-${{ matrix.name }} \
+            --assume-yes-for-downloads --remove-output \
+            doer
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: doer-nuitka-${{ matrix.name }}
+          path: dist/doer-nuitka-${{ matrix.name }}*
+
+  # --- PyPI publish (on tags only) ---
+  pypi:
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Extract version
-        id: ver
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Flatten artifacts
-        run: |
-          mkdir -p release
-          find artifacts -type f \( -name 'doer-*' -o -name '*.whl' -o -name '*.tar.gz' \) \
-            -exec cp {} release/ \;
-          ls -la release/
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: doer ${{ github.ref_name }}
-          body: |
-            ## 🦆 doer ${{ github.ref_name }}
-
-            One-file pipe-native minimalist AI agent.
-
-            ### Install from PyPI
-            ```bash
-            pip install doer==${{ steps.ver.outputs.version }}
-            ```
-
-            ### Standalone binary (no Python)
-            ```bash
-            curl -sSL https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/doer-$(uname -s | tr A-Z a-z)-$(uname -m) -o /usr/local/bin/doer
-            chmod +x /usr/local/bin/doer
-            ```
-
-            **Binaries attached:**
-            - `doer-linux-x86_64`
-            - `doer-darwin-x86_64` (Intel)
-            - `doer-darwin-arm64` (Apple Silicon)
-
-            **Full Changelog**: https://github.com/${{ github.repository }}/compare/...${{ github.ref_name }}
-          files: release/*
-          draft: false
-          prerelease: false
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.13' }
+      - run: pip install build twine
+      - run: python -m build
+      - name: Publish to PyPI
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload dist/*.whl dist/*.tar.gz
+
+  # --- GitHub Release (collects all artifacts) ---
+  release:
+    needs: [pyinstaller, nuitka]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/doer-*
+          generate_release_notes: true
