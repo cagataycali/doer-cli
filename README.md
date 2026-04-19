@@ -32,3 +32,19 @@ def greet(name: str) -> str:
 ```
 
 Apache-2.0.
+
+## install as binary (no python needed)
+
+download from [releases](https://github.com/cagataycali/doer/releases):
+
+```bash
+# linux / macos (one-liner)
+curl -sSL https://github.com/cagataycali/doer/releases/latest/download/doer-$(uname -s | tr A-Z a-z)-$(uname -m) -o /usr/local/bin/doer
+chmod +x /usr/local/bin/doer
+```
+
+or build yourself:
+
+```bash
+./build.sh   # writes dist/doer-<platform>
+```

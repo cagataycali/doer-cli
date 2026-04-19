@@ -25,7 +25,15 @@ def shell(cmd: str, timeout: int = 60) -> str:
 
 
 def _source():
+    """Read own source. Works both in dev and PyInstaller frozen binary."""
     try:
+        if getattr(sys, "frozen", False):
+            # PyInstaller: source bundled in _MEIPASS
+            base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+            for candidate in (base / "doer" / "__init__.py", base / "__init__.py"):
+                if candidate.exists():
+                    return candidate.read_text()
+            return f"(frozen; source not bundled at {base})"
         return Path(__file__).read_text()
     except Exception as e:
         return f"(source unavailable: {e})"
