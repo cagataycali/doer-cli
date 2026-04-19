@@ -23,19 +23,16 @@ Three paths. All three give you `do` and `doer` on your `$PATH`.
     pip install doer-cli
     ```
 
-=== "curl one-liner"
+=== "curl (binary, coming soon)"
 
-    Prebuilt binary. **No Python needed.**
+    Prebuilt binaries will land on GitHub Releases shortly. For now, use `pipx`.
 
-    ```bash
-    curl -sSL https://raw.githubusercontent.com/cagataycali/doer-cli/main/install.sh | sh
-    ```
-
-    Installs to `~/.local/bin` by default. Override:
-
-    ```bash
-    DOER_INSTALL_DIR=/usr/local/bin curl -sSL ... | sh
-    ```
+    !!! note "what to expect"
+        ```bash
+        # once released:
+        curl -sSL https://github.com/cagataycali/doer-cli/releases/latest/download/install.sh | sh
+        ```
+        Installs to `~/.local/bin`. No Python required.
 
 ## two binaries, one brain
 

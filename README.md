@@ -29,7 +29,7 @@ pipx install doer-cli
 pip install doer-cli
 
 # 3) one-liner (prebuilt binary, no Python needed)
-curl -sSL https://raw.githubusercontent.com/cagataycali/doer-cli/main/install.sh | sh
+# prebuilt binary installer — coming soon on GitHub Releases
 ```
 
 > Two binaries get installed: **`do`** (short) and **`doer`** (long). Pick your poison.
