@@ -186,7 +186,7 @@
       <li><a href="#run">Run</a></li>
       <li><a href="#context">Context</a></li>
       <li><a href="#extend">Extend</a></li>
-      <li><a href="https://github.com/cagataycali/doer">GitHub ↗</a></li>
+      <li><a href="https://github.com/cagataycali/doer-cli">GitHub ↗</a></li>
     </ul>
   </div>
 </nav>
@@ -199,7 +199,7 @@
     <p class="tag">A Unix citizen that thinks. One file. One dep. Zero ceremony.</p>
     <div class="cta">
       <a class="btn primary" href="#install">Install →</a>
-      <a class="btn" href="https://github.com/cagataycali/doer">GitHub</a>
+      <a class="btn" href="https://github.com/cagataycali/doer-cli">GitHub</a>
     </div>
   </div>
 </div>
@@ -208,12 +208,16 @@
   <div class="wrap">
     <h2><span class="num">01</span>Install</h2>
     <p class="lead">One line. Python 3.10+. Ollama running locally (or `OLLAMA_HOST` set).</p>
-    <pre><span class="c"># from PyPI</span>
+    <pre><span class="c"># 1) pipx — isolated, auto-updatable (recommended)</span>
+pipx install doer-cli
+
+<span class="c"># 2) pip — any venv</span>
 pip install doer-cli
 
-<span class="c"># or grab a prebuilt binary (no Python needed)</span>
-curl -sSL https://github.com/cagataycali/doer/releases/latest/download/doer-$(uname -s | tr A-Z a-z)-$(uname -m) \
-  -o /usr/local/bin/doer && chmod +x /usr/local/bin/doer</pre>
+<span class="c"># 3) one-liner (prebuilt binary, no Python needed)</span>
+curl -sSL https://raw.githubusercontent.com/cagataycali/doer-cli/main/install.sh | sh</pre>
+
+<p style="margin-top: 18px; color: var(--mute);">Installs two binaries: <code style="color: var(--paper)">do</code> (short) and <code style="color: var(--paper)">doer</code> (long).</p>
   </div>
 </section>
 
@@ -221,12 +225,12 @@ curl -sSL https://github.com/cagataycali/doer/releases/latest/download/doer-$(un
   <div class="wrap">
     <h2><span class="num">02</span>Run</h2>
     <p class="lead">Pipe anything in. Pipe anything out. Chain it like `grep`.</p>
-    <pre>doer <span class="s">"find files larger than 100MB"</span>
+    <pre>do <span class="s">"find files larger than 100MB"</span>
 
-cat error.log  | doer <span class="s">"what broke"</span>
-git log -20    | doer <span class="s">"write release notes"</span>
-echo <span class="s">'{"a":1}'</span> | doer <span class="s">"to yaml"</span>
-curl -s api.io | doer <span class="s">"summarize"</span>  | tee out.md</pre>
+cat error.log  | do <span class="s">"what broke"</span>
+git log -20    | do <span class="s">"write release notes"</span>
+echo <span class="s">'{"a":1}'</span> | do <span class="s">"to yaml"</span>
+curl -s api.io | do <span class="s">"summarize"</span>  | tee out.md</pre>
   </div>
 </section>
 
@@ -273,7 +277,7 @@ curl -s api.io | doer <span class="s">"summarize"</span>  | tee out.md</pre>
 <span class="k">def</span> weather(city: str) -> str:
     <span class="s">"""Weather for a city."""</span>
     <span class="k">return</span> urllib.request.urlopen(f<span class="s">"https://wttr.in/{city}?format=3"</span>).read().decode()</pre>
-    <p style="margin-top: 24px; color: var(--mute);">→ <code style="color: var(--paper)">doer "weather istanbul?"</code> — no restart needed.</p>
+    <p style="margin-top: 24px; color: var(--mute);">→ <code style="color: var(--paper)">do "weather istanbul?"</code> — no restart needed.</p>
   </div>
 </section>
 
@@ -282,7 +286,7 @@ curl -s api.io | doer <span class="s">"summarize"</span>  | tee out.md</pre>
     <h2><span class="num">06</span>Philosophy</h2>
     <p class="lead">doer doesn't want a UI. It wants to be <code>grep</code> with a brain.</p>
     <div class="ascii">  ┌─────┐       ┌──────┐       ┌──────┐
-  │stdin│ <span class="a">──▶</span> │ doer │ <span class="a">──▶</span> │stdout│
+  │stdin│ <span class="a">──▶</span> │  do  │ <span class="a">──▶</span> │stdout│
   └─────┘       └──────┘       └──────┘
 
   read · think briefly · write
@@ -292,17 +296,17 @@ curl -s api.io | doer <span class="s">"summarize"</span>  | tee out.md</pre>
 
 <section class="final" id="final">
   <h2>Pipe it.</h2>
-  <p>164 lines of Python. One dep. <code style="color: var(--signal)">pip install doer-cli</code> and start chaining.</p>
+  <p>164 lines of Python. One dep. <code style="color: var(--signal)">pipx install doer-cli</code> · <code style="color: var(--signal)">do "hello"</code></p>
   <div class="cta" style="justify-content: center;">
     <a class="btn primary" href="https://pypi.org/project/doer-cli/">PyPI →</a>
-    <a class="btn" href="https://github.com/cagataycali/doer">Source</a>
+    <a class="btn" href="https://github.com/cagataycali/doer-cli">Source</a>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
     <div>© 2026 · Apache-2.0 · built in New York</div>
-    <div><a href="https://github.com/cagataycali/doer">github</a> · <a href="https://pypi.org/project/doer-cli/">pypi</a> · <a href="https://github.com/cagataycali/devduck">devduck</a></div>
+    <div><a href="https://github.com/cagataycali/doer-cli">github</a> · <a href="https://pypi.org/project/doer-cli/">pypi</a> · <a href="https://github.com/cagataycali/devduck">devduck</a></div>
     <div><code>do one thing and do it well</code> — McIlroy, 1978</div>
   </div>
 </footer>

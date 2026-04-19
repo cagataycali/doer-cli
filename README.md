@@ -6,7 +6,8 @@
 
 ### `stdin → llm → stdout`
 
-**A Unix citizen that thinks. One file. One dep. Zero ceremony.**
+**A Unix citizen that thinks.**
+**One file. One dep. Zero ceremony.**
 
 [![PyPI](https://img.shields.io/pypi/v/doer-cli.svg?style=for-the-badge&color=FF3D00&labelColor=0A0A0A)](https://pypi.org/project/doer-cli/)
 [![License](https://img.shields.io/badge/APACHE-2.0-FAFAF7?style=for-the-badge&labelColor=0A0A0A)](LICENSE)
@@ -18,18 +19,30 @@
 
 ## install
 
+Pick your path. All three give you `do` on your `$PATH`.
+
 ```bash
-pip install doer-cli    # package on PyPI
-doer                    # binary on your PATH
+# 1) pipx — isolated, auto-updatable (recommended)
+pipx install doer-cli
+
+# 2) pip — any venv
+pip install doer-cli
+
+# 3) one-liner (prebuilt binary, no Python needed)
+curl -sSL https://raw.githubusercontent.com/cagataycali/doer-cli/main/install.sh | sh
 ```
+
+> Two binaries get installed: **`do`** (short) and **`doer`** (long). Pick your poison.
 
 ## run
 
 ```bash
-doer "find files larger than 100MB"
-cat error.log  | doer "what broke"
-git log -20    | doer "write release notes"
-echo '{"a":1}' | doer "to yaml"
+do "find files larger than 100MB"
+
+cat error.log  | do "what broke"
+git log -20    | do "write release notes"
+echo '{"a":1}' | do "to yaml"
+curl -s api.io | do "summarize" | tee out.md
 ```
 
 ## what it is
@@ -38,7 +51,8 @@ echo '{"a":1}' | doer "to yaml"
 Agent(
     model=Ollama(...),
     tools=[shell] + hot_reload("./tools"),
-    system_prompt=SOUL.md + AGENTS.md + ~/.doer_history + ~/.bash_history + ~/.zsh_history + own_source,
+    system_prompt=SOUL.md + AGENTS.md + ~/.doer_history
+                + ~/.bash_history + ~/.zsh_history + own_source,
 )(stdin + argv)
 ```
 
@@ -46,14 +60,14 @@ That's the entire architecture. **164 lines** of Python. It reads your shell lik
 
 ## context it sees every call
 
-| source                   | what                                         |
-| ------------------------ | -------------------------------------------- |
-| `SOUL.md` (cwd)          | who it is in this project                    |
-| `AGENTS.md` (cwd)        | rules for this project                       |
-| `~/.doer_history`        | last N Q/A (default 10 — `DOER_HISTORY`)     |
-| `~/.bash_history` + `~/.zsh_history` | last N commands (default 20 — `DOER_SHELL_HISTORY`) |
-| `./tools/*.py`           | hot-reloaded `@tool` functions               |
-| own source               | full self-awareness                          |
+| source                 | what                                               |
+| ---------------------- | -------------------------------------------------- |
+| `SOUL.md` (cwd)        | who it is in this project                          |
+| `AGENTS.md` (cwd)      | rules for this project                             |
+| `~/.doer_history`      | last N Q/A (`DOER_HISTORY=10`)                     |
+| `~/.bash_history` + `~/.zsh_history` | last N commands (`DOER_SHELL_HISTORY=20`) |
+| `./tools/*.py`         | hot-reloaded `@tool` functions                     |
+| own source             | full self-awareness                                |
 
 No database. No config file. **The filesystem is the memory.**
 
@@ -79,13 +93,13 @@ def weather(city: str) -> str:
     return urllib.request.urlopen(f"https://wttr.in/{city}?format=3").read().decode()
 ```
 
-Next call: `doer "istanbul weather?"` — hot-reloaded, no restart.
+Next call: `do "istanbul weather?"` — hot-reloaded, no restart.
 
 ## philosophy
 
 ```
 ┌─────┐       ┌──────┐       ┌──────┐
-│stdin│──────▶│ doer │──────▶│stdout│
+│stdin│──────▶│  do  │──────▶│stdout│
 └─────┘       └──────┘       └──────┘
 ```
 
@@ -99,6 +113,13 @@ Read [**SOUL.md**](SOUL.md) for the manifesto. Read [**AGENTS.md**](AGENTS.md) f
 | ---------- | ---------- | --------------------------------- |
 | **doer**   | 164 LOC    | one pipe, one shell, one file     |
 | [**DevDuck**](https://github.com/cagataycali/devduck) | 60+ tools  | every protocol, every edge |
+
+## uninstall
+
+```bash
+pipx uninstall doer-cli    # or: pip uninstall doer-cli
+rm /usr/local/bin/do       # if installed via curl
+```
 
 ## license
 

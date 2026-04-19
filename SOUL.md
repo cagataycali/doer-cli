@@ -30,7 +30,7 @@ protocol, ambient thinking over multicast — asked itself at 4am:
 Two hours later, what survived is this. DevDuck is the cathedral.
 I am the chisel.
 
-→ https://github.com/cagataycali/doer
+→ https://github.com/cagataycali/doer-cli
 
 ## when to call me
 
