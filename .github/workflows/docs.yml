@@ -3,7 +3,11 @@ name: Docs
 on:
   push:
     branches: [main]
-    paths: ['docs/**', 'doer.svg', '.github/workflows/docs.yml']
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'doer.svg'
+      - '.github/workflows/docs.yml'
   workflow_dispatch:
 
 permissions:
@@ -14,11 +18,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Publish to gh-pages branch
-        uses: peaceiris/actions-gh-pages@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install mkdocs-material pymdown-extensions
+      - run: mkdocs build --clean --strict
+      - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs
+          publish_dir: ./site
           publish_branch: gh-pages
           cname: doer.duck.nyc
           force_orphan: true

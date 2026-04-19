@@ -6,5 +6,5 @@ build/
 dist/
 .venv/
 .DS_Store
-# mkdocs-built output (we don't use mkdocs anymore)
+# mkdocs build output (generated)
 site/

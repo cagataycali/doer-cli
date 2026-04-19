@@ -1,0 +1,78 @@
+site_name: DOER
+site_description: A Unix citizen that thinks. stdin → llm → stdout.
+site_url: https://doer.duck.nyc/
+repo_url: https://github.com/cagataycali/doer-cli
+repo_name: cagataycali/doer-cli
+copyright: Copyright © 2026 · Apache-2.0 · built in New York
+
+theme:
+  name: material
+  logo: doer.svg
+  favicon: doer.svg
+  font:
+    text: Space Grotesk
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+
+extra_css:
+  - assets/brand.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/cagataycali/doer-cli
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/doer-cli/
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.keys
+  - pymdownx.mark
+
+nav:
+  - Home: index.md
+  - Install: install.md
+  - Usage: usage.md
+  - Context: context.md
+  - Extend: extend.md
+  - Philosophy: philosophy.md
