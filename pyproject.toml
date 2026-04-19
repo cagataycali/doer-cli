@@ -24,7 +24,6 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/cagataycali/doer"
-Documentation = "https://doer.duck.nyc"
 Issues = "https://github.com/cagataycali/doer/issues"
 
 [project.scripts]

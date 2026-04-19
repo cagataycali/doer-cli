@@ -9,7 +9,7 @@ _HIST = Path.home() / ".doer_history"
 
 # ollama-only config (override via env)
 _OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-_OLLAMA_MODEL = os.environ.get("DOER_MODEL", "qwen3.5:0.8b")
+_OLLAMA_MODEL = os.environ.get("DOER_MODEL", "qwen3:1.7b")
 
 from strands import Agent, tool
 from strands.models.ollama import OllamaModel
@@ -87,6 +87,17 @@ def _shell_history(n: int = 30) -> str:
     entries.sort(key=lambda e: e[1] or 0)
     tail = entries[-n:]
     return "\n".join(f"[{src}] {cmd}" for src, _, cmd in tail) or "(empty)"
+
+
+def _context_file(name: str) -> str:
+    """Read a context file from cwd if it exists (AGENTS.md, SOUL.md, etc)."""
+    f = Path.cwd() / name
+    if f.exists() and f.is_file():
+        try:
+            return f.read_text(errors="ignore").strip()
+        except Exception as e:
+            return f"(err reading {name}: {e})"
+    return ""
 
 
 def _append(q: str, a: str):
