@@ -23,11 +23,11 @@ chain · script · cron</div>
 
 ## why small matters
 
-~420 lines isn't a lot. It's a **contract**.
+~730 lines isn't a lot — for an agent with its own training loop. It's a **contract**.
 
 | you can…                          | because…                              |
 | --------------------------------- | ------------------------------------- |
-| read the whole source in a break  | it fits on eight screens               |
+| read the whole source in one sitting | it's one file, top to bottom        |
 | audit every tool call             | there's only one tool: `shell`        |
 | fork it and own it                | one file, one dep                     |
 | explain it to a colleague         | there's nothing hidden                |
@@ -80,13 +80,13 @@ Born **2026-04-19** in New York. A REPL named [**DevDuck**](https://github.com/c
 
 > *what if we deleted almost everything?*
 
-Two hours later, `doer` was born. ~420 lines of Python. One dep. No config. No state. Just `stdin → llm → stdout` — and now, a full training loop in the same file.
+Two hours later, `doer` was born. ~730 lines of Python. One dep. No config. No state. Just `stdin → agent → stdout` — and now, a full training loop in the same file.
 
 ## family
 
 | project        | size       | purpose                               |
 | -------------- | ---------- | ------------------------------------- |
-| **doer**       | ~420 LOC   | one pipe, one shell, one file, one loop |
+| **doer**       | ~730 LOC   | one pipe, one shell, one file, one loop |
 | [**DevDuck**](https://github.com/cagataycali/devduck) | 60+ tools  | every protocol, every edge            |
 
 ---

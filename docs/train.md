@@ -1,32 +1,38 @@
 # Train on yourself
 
-`doer` closes its own loop. Collect → train → hot-swap. One file. No new services.
+`doer` closes its own loop. Collect → train → hot-swap. Text, vision, audio, video — all in one file. No new services.
 
-<div class="ascii-box">use doer                  do --train               DOER_ADAPTER=...
-   │                         │                          │
-   ▼                         ▼                          ▼
-~/.doer_training.jsonl  →  mlx_lm.tuner  →  ~/.doer_adapter/adapters.safetensors</div>
+<div class="ascii-box">use doer                  do --train              DOER_ADAPTER=...
+   │                         do --train-vlm                │
+   ▼                            │                          ▼
+~/.doer_training.jsonl  →  mlx_lm.tuner       →  ~/.doer_adapter/...
+                         or mlx_vlm.lora      →  ~/.doer_vlm_adapter/...</div>
 
 ## the loop
 
 ```bash
 # 1. collect — every `do "..."` call appends a full turn
 do "fix the failing test"
-do "explain this stacktrace" < err.log
-do "write a bash one-liner that ..."
-# ... keep using doer for real work, ~100+ turns
+do --img screenshot.png "label the bugs"
+do --audio standup.wav  "bullet the action items"
+# ... keep using doer for real work, ~100+ turns across modalities
 
 # 2. inspect your corpus
 do --train-status
-# → 127 turns | 2453.1KB | /Users/you/.doer_training.jsonl
+# → 127 turns | 2453.1KB | sha256:250c406b | /Users/you/.doer_training.jsonl
+#     text:102  image:18  audio:3  video:4
+#     hf:    cagataydev/doer-training | in sync
 
 # 3. train (Apple Silicon only)
-pip install 'doer-cli[mlx]'        # pulls strands-mlx + mlx-lm
-do --train 200                     # 200 LoRA iters, rank 8, AdamW, lr 1e-5
-# → ~/.doer_adapter/adapters.safetensors
+pip install 'doer-cli[mlx]'        # text LoRA
+pip install 'doer-cli[vlm]'        # vision LoRA (adds mlx-vlm + datasets)
+
+do --train 200                     # text LoRA   → ~/.doer_adapter
+do --train-vlm 300                 # vision LoRA → ~/.doer_vlm_adapter
 
 # 4. hot-swap your trained self
-DOER_PROVIDER=mlx DOER_ADAPTER=~/.doer_adapter do "fix the failing test"
+DOER_PROVIDER=mlx     DOER_ADAPTER=~/.doer_adapter         do "fix the failing test"
+DOER_PROVIDER=mlx-vlm DOER_VLM_ADAPTER=~/.doer_vlm_adapter do --img x.png "what's this?"
 ```
 
 !!! tip "automate collection"
@@ -49,14 +55,15 @@ Every `do "..."` call appends **one JSON line** to `~/.doer_training.jsonl`:
   "ts": 1776587093,
   "model": "bedrock global.anthropic.claude-opus-4-7 @ us-west-2",
   "query": "original user query",
-  "system": "<full _prompt() — SOUL + AGENTS + history + source, ~20KB>",
+  "system": "<full _build_prompt() — SOUL + AGENTS + history + source, ~20KB>",
   "messages": [
-    {"role": "user",      "content": [{"text": "..."}]},
+    {"role": "user",      "content": [{"text": "..."}, {"image": {...}}]},
     {"role": "assistant", "content": [{"text": "..."}, {"toolUse": {...}}]},
     {"role": "user",      "content": [{"toolResult": {...}}]},
     {"role": "assistant", "content": [{"text": "..."}]}
   ],
-  "tools": [{"name": "shell", "description": "...", "input_schema": {...}}]
+  "tools": [{"name": "shell", "description": "...", "input_schema": {...}}],
+  "media": {"images": ["./shot.png"], "audio": [], "video": []}
 }
 ```
 
@@ -69,54 +76,123 @@ The system prompt is **already** the live prompt that regenerates every call
 Self-contained records are ops-simple: you can delete the live repo tomorrow
 and the corpus still trains.
 
-## why native tool-call tokens
+### why native tool-call tokens
 
-Under the hood, `_strands_to_openai()` converts Strands `ContentBlock` messages
-to OpenAI chat format — **with `tool_calls` kept as structured data**, not
-stringified. When mlx-lm applies the tokenizer's chat template, Qwen/Llama/etc.
-emit their **native** tool-call tokens (e.g. `<tool_call>...</tool_call>`).
+Under the hood, `_strands_to_openai()` converts Strands `ContentBlock`
+messages to OpenAI chat format — **with `tool_calls` kept as structured
+data**, not stringified. When `mlx_lm` applies the tokenizer's chat
+template, Qwen/Llama/etc. emit their **native** tool-call tokens (e.g.
+`<tool_call>...</tool_call>`).
 
 The adapter learns **real** tool use. Not a string-matching impression of it.
 
-## what `--train` does
+## what `--train` does (text)
 
 Under ~50 lines. Calls `mlx_lm.tuner` directly. No `strands-mlx` trainer indirection.
 
 | step | detail |
 |---|---|
 | load model | `DOER_MLX_MODEL` (default `mlx-community/Qwen3-1.7B-4bit`) |
-| filter | drop records with empty `messages` (failed turns) |
+| filter | drop records with empty `messages` **and** skip any record carrying media (those go to `--train-vlm`) |
 | split | 90% train / 10% valid, seeded shuffle |
 | convert | Strands → OpenAI `{messages, tools}` |
 | LoRA | rank 8, scale 20.0, 8 layers, no dora |
-| optimizer | AdamW, lr `1e-5` (tune via CLI soon) |
+| optimizer | AdamW, lr `1e-5` |
 | checkpoint | every `max(100, iters//2)` steps |
 | output | `~/.doer_adapter/adapters.safetensors` + `adapter_config.json` |
+
+## what `--train-vlm` does (vision)
+
+```bash
+pip install 'doer-cli[vlm]'
+do --train-vlm 300
+```
+
+| step | detail |
+|---|---|
+| load model | `DOER_MLX_VLM_MODEL` (default `mlx-community/Qwen2.5-VL-3B-Instruct-4bit`) |
+| filter | **keep only** records that carry image/audio/video media |
+| compact | flatten multimodal `ContentBlock`s into a chat-template–friendly form |
+| LoRA | rank 8 on vision projector + LM layers |
+| output | `~/.doer_vlm_adapter/adapters.safetensors` + `adapter_config.json` |
+
+Use the trained adapter by pointing `DOER_VLM_ADAPTER` at it:
+
+```bash
+DOER_PROVIDER=mlx-vlm DOER_VLM_ADAPTER=~/.doer_vlm_adapter \
+  do --img login.png "spot the accessibility issues"
+```
+
+## share the dataset (HuggingFace)
+
+Keep your corpus in sync across machines. Back it up. Or train remotely.
+
+```bash
+pip install 'doer-cli[hf]'
+
+do --upload-hf                        # → <user>/doer-training (private)
+do --upload-hf cagataydev/my-data     # custom repo
+do --upload-hf-public                 # public dataset
+```
+
+Idempotent — a single atomic commit per run (`data/train.jsonl` + a README
+with schema, stats, sha). Reuses `huggingface-cli login` or `HF_TOKEN`.
+
+Check sync state:
+
+```bash
+do --train-status
+# → 127 turns | 2453.1KB | sha256:250c406b | ~/.doer_training.jsonl
+#     text:102  image:18  audio:3  video:4
+#     hf:    cagataydev/doer-training | upload 127 turns (...) | in sync
+```
+
+**Round-trip elsewhere:**
+
+```bash
+hf download cagataydev/doer-training --repo-type dataset --local-dir /tmp/d
+cp /tmp/d/data/train.jsonl ~/.doer_training.jsonl
+do --train 200
+```
 
 ## env knobs
 
 | var | default | purpose |
 |---|---|---|
-| `DOER_MLX_MODEL` | `mlx-community/Qwen3-1.7B-4bit` | base model for training + MLX inference |
-| `DOER_ADAPTER` | *(unset)* | path to LoRA adapter for hot-swap |
+| `DOER_MLX_MODEL` | `mlx-community/Qwen3-1.7B-4bit` | base model for text training + MLX inference |
+| `DOER_ADAPTER` | *(unset)* | path to text LoRA adapter for hot-swap |
+| `DOER_MLX_VLM_MODEL` | `mlx-community/Qwen2.5-VL-3B-Instruct-4bit` | vision base model (image) |
+| `DOER_MLX_AUDIO_MODEL` | `mlx-community/gemma-3n-E2B-it-4bit` | audio base model |
+| `DOER_MLX_OMNI_MODEL` | `mlx-community/Qwen3-Omni-30B-A3B-Instruct-4bit` | mixed (image + audio) base model |
+| `DOER_VLM_ADAPTER` | *(unset)* | path to VLM LoRA adapter for hot-swap |
+| `DOER_HF_REPO` | `<user>/doer-training` | target HF dataset repo |
+| `HF_TOKEN` | *(fallback: `~/.cache/huggingface/token`)* | HF auth |
+| `DOER_MAX_SEQ_LEN` | `16384` | max sequence length for LoRA training (raise for long records, lower to save RAM) |
 | `DOER_DEBUG` | *(unset)* | print training-log append errors |
 
 ## commands
 
 ```bash
-do --train              # 200 iters (default)
-do --train 500          # 500 iters
-do --train-status       # show corpus size + path
+do --train              # text LoRA, 200 iters
+do --train 500          # text LoRA, 500 iters
+do --train-vlm          # vision LoRA, 300 iters
+do --train-vlm 500      # vision LoRA, 500 iters
+do --train-status       # corpus stats + modality breakdown + HF sync
+do --upload-hf          # push corpus to private HF dataset
+do --upload-hf-public   # push corpus to public HF dataset
 ```
 
 ## dependency footprint
 
 ```bash
-pip install doer-cli              # strands-agents[ollama]  — no training, no mlx
-pip install 'doer-cli[mlx]'       # + strands-mlx + mlx-lm  — inference + training
+pip install doer-cli              # core — no training, no mlx, no upload
+pip install 'doer-cli[mlx]'       # + strands-mlx + mlx-lm  — text training + MLX inference
+pip install 'doer-cli[vlm]'       # + mlx-vlm + datasets    — multimodal + VLM training
+pip install 'doer-cli[hf]'        # + huggingface-hub       — corpus upload
+pip install 'doer-cli[all]'       # everything
 ```
 
-Default install stays lean. MLX is opt-in (~500MB of wheels for Apple Silicon).
+Each extra is lazy-imported — zero cost if unused.
 
 ## privacy
 
@@ -124,17 +200,18 @@ Default install stays lean. MLX is opt-in (~500MB of wheels for Apple Silicon).
 ls -l ~/.doer_training.jsonl
 # -rw-------  1 you  staff  2453133 Apr 20 01:44
 
-rm ~/.doer_training.jsonl          # nuke corpus
-rm -rf ~/.doer_adapter             # nuke adapter
+rm ~/.doer_training.jsonl              # nuke corpus
+rm -rf ~/.doer_adapter ~/.doer_vlm_adapter   # nuke adapters
 ```
 
-Mode `0600`. Never leaves your machine. Never reported. Never phoned home.
+Mode `0600`. Never leaves your machine unless **you** run `--upload-hf`.
 Your **filesystem** is the training loop.
 
 ## when this matters
 
 - You keep typing the same kinds of queries → fine-tune on your own Q/A.
 - You have project-specific idioms (`SOUL.md`, `AGENTS.md`) → the adapter absorbs them.
+- You screenshot bugs all day → train a VLM adapter on **your** UI + **your** feedback style.
 - You want a **small, fast, offline** model that knows *your* voice → train on 4am Bedrock turns, serve from MLX the next morning.
 
 > **The cathedral labels the tokens. The chisel learns them.**

@@ -496,7 +496,7 @@ def train(iters: int = 200, lr: float = 1e-5, batch_size: int = 1, num_layers: i
             steps_per_report=10, steps_per_eval=max(50, iters // 4),
             steps_per_save=max(100, iters // 2),
             adapter_file=adapter_path / "adapters.safetensors",
-            max_seq_length=2048, grad_checkpoint=True, grad_accumulation_steps=1,
+            max_seq_length=int(ENV("DOER_MAX_SEQ_LEN", "16384")), grad_checkpoint=True, grad_accumulation_steps=1,
         )
         _mlx_train(model=model, args=targs, optimizer=optim.AdamW(learning_rate=lr),
                    train_dataset=CacheDataset(train_set), val_dataset=CacheDataset(valid_set),

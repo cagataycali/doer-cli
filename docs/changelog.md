@@ -2,6 +2,19 @@
 
 Compressed history. Newest first.
 
+## v0.5.0 — *multimodal + dataset publishing*
+
+- **Multimodal input** — `--img`, `--audio`, `--video` flags route to `mlx-vlm` automatically
+  - vision-only → `Qwen2.5-VL-3B`
+  - audio-only → `gemma-3n-E2B-it`
+  - mixed (image + audio) → `Qwen3-Omni-30B-A3B`
+- **VLM LoRA training** — `do --train-vlm [iters]` trains on image/audio/video records
+- **HuggingFace upload** — `do --upload-hf` / `do --upload-hf-public` publishes the corpus as an HF dataset (private by default). Idempotent, one atomic commit, reuses `huggingface-cli login`.
+- **`--train-status` refreshed** — shows sha256, modality breakdown (text/image/audio/video), HF sync state
+- **Structural refactor** — same CLI surface, clearer internals (PR #5). ~730 lines total.
+- New env knobs: `DOER_MLX_VLM_MODEL`, `DOER_MLX_AUDIO_MODEL`, `DOER_MLX_OMNI_MODEL`, `DOER_VLM_ADAPTER`, `DOER_HF_REPO`, `DOER_CACHE_PROMPT`, `DOER_BEDROCK_GUARDRAIL_ID/VERSION`, `DOER_ADDITIONAL_REQUEST_FIELDS`
+- New opt-in extras: `[vlm]` (mlx-vlm + datasets), `[hf]` (huggingface-hub), `[all]`
+
 ## v0.4.0 — *closed the loop*
 
 - **Self-training** — every `do "..."` call appends a dense, self-contained record to `~/.doer_training.jsonl` (full system prompt + messages + tool specs)
@@ -12,7 +25,7 @@ Compressed history. Newest first.
 - **Auto-detect extended** — provider order now `bedrock → mlx (Apple Silicon) → ollama`
 - New env knobs: `DOER_MLX_MODEL`, `DOER_ADAPTER`, `DOER_DEBUG`
 - Opt-in extra: `pip install 'doer-cli[mlx]'` pulls `strands-mlx` + `mlx-lm` (~500MB) — default install stays lean
-- ~420 LOC (up from 221) — still one file, still one default dep
+- ~420 LOC (up from 221) at the time — one file, one default dep
 - New docs: [Train on yourself](train.md)
 
 ## v0.3.0 — *frontier by default*

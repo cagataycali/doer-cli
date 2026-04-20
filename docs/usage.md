@@ -28,6 +28,28 @@ echo '{"a":1}' | do "to yaml"
     `doer` detects TTY. When its output goes to a pipe or file, it strips markdown.  
     Just the answer. Clean. Parseable.
 
+
+## multimodal
+
+Pass `--img`, `--audio`, or `--video` to route through a VLM. Auto-selects
+the right model based on modality mix. Requires `pip install 'doer-cli[vlm]'`
+on Apple Silicon.
+
+```bash
+do --img screenshot.png  "what's in this UI?"
+do --audio call.wav      "transcribe + bullet action items"
+do --video clip.mp4      "describe what's happening"
+
+# multiple images
+do --img a.png --img b.png "spot the differences"
+
+# mixed modality → omni model
+do --img slide.png --audio speaker.wav "summarize this presentation"
+```
+
+Flags can appear **anywhere** in the command. The agent sees the raw bytes
+along with your query + stdin + all the usual prompt context.
+
 ## chained
 
 Because output is clean, chaining with `|`, `tee`, `xargs`, `awk`, `jq` just works.
@@ -52,7 +74,7 @@ No config file. Every knob is an env var. Put them in your `.zshrc`/`.bashrc` or
 
 | var                    | default                                      | purpose                             |
 | ---------------------- | -------------------------------------------- | ----------------------------------- |
-| `DOER_PROVIDER`        | *(auto: bedrock → mlx → ollama)*             | `bedrock` \| `mlx` \| `ollama`      |
+| `DOER_PROVIDER`        | *(auto: mlx-vlm → bedrock → mlx → ollama)*   | `bedrock` \| `mlx` \| `mlx-vlm` \| `ollama` |
 | `DOER_HISTORY`         | `10`                                         | Q/A pairs injected into prompt      |
 | `DOER_SHELL_HISTORY`   | `20`                                         | shell history lines in prompt       |
 | **Bedrock**            |                                              |                                     |
@@ -70,6 +92,14 @@ No config file. Every knob is an env var. Put them in your `.zshrc`/`.bashrc` or
 | **MLX** *(Apple Silicon, opt-in)* |                                    |                                     |
 | `DOER_MLX_MODEL`       | `mlx-community/Qwen3-1.7B-4bit`              | base MLX model                      |
 | `DOER_ADAPTER`         | *(unset)*                                    | path to LoRA adapter (hot-swap)     |
+| **MLX-VLM** *(multimodal, opt-in)* |                                   |                                     |
+| `DOER_MLX_VLM_MODEL`   | `mlx-community/Qwen2.5-VL-3B-Instruct-4bit`  | vision model (`--img`)              |
+| `DOER_MLX_AUDIO_MODEL` | `mlx-community/gemma-3n-E2B-it-4bit`         | audio model (`--audio`)             |
+| `DOER_MLX_OMNI_MODEL`  | `mlx-community/Qwen3-Omni-30B-A3B-Instruct-4bit` | omni (image + audio)            |
+| `DOER_VLM_ADAPTER`     | *(unset)*                                    | path to VLM LoRA adapter            |
+| **HuggingFace upload** *(opt-in)* |                                    |                                     |
+| `DOER_HF_REPO`         | `<user>/doer-training`                       | target dataset repo for `--upload-hf` |
+| `HF_TOKEN`             | *(fallback: `~/.cache/huggingface/token`)*   | HF auth — or `huggingface-cli login`  |
 
 ```bash
 # default: Claude Opus 4.7 on Bedrock (1M context, 128k output)
@@ -99,9 +129,12 @@ OLLAMA_HOST=http://gpu-box:11434 DOER_PROVIDER=ollama do "explain this codebase"
 ## train on yourself
 
 ```bash
-do --train-status       # show corpus size + path
-do --train              # 200 LoRA iters on ~/.doer_training.jsonl (needs `[mlx]`)
-do --train 500          # 500 iters
+do --train-status         # show corpus stats + HF sync state
+do --train                # 200 text LoRA iters (needs `[mlx]`)
+do --train 500            # 500 iters
+do --train-vlm 300        # vision LoRA on image/audio/video records (needs `[vlm]`)
+do --upload-hf            # push corpus to <user>/doer-training (private)
+do --upload-hf-public     # push corpus to <user>/doer-training (public)
 ```
 
 Every `do "..."` call appends a full training record automatically.

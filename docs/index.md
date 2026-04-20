@@ -10,9 +10,9 @@ hide:
 
 # DO<span class="accent">ER</span>.
 
-<div class="flow">stdin → llm → stdout</div>
+<div class="flow">stdin → agent → stdout</div>
 
-<div class="tag">A Unix citizen that thinks.<br>One file. One dep. Zero ceremony.</div>
+<div class="tag">A Unix citizen that thinks.<br>In text, images, audio, and video.</div>
 
 <div class="doer-cta">
   <a href="install/" class="primary">Install →</a>
@@ -54,11 +54,15 @@ hide:
 <span class="out">redis connection timeout at 14:22 —
 likely the </span><span class="hl">REDIS_URL</span><span class="out"> env var is stale.</span>
 
-<span class="prompt">$</span> <span class="cmd">git log -20 | do "release notes"</span>
-<span class="out">### v0.3.0 — frontier by default
-- new: bedrock default, </span><span class="hl">Claude Opus 4.7</span><span class="out"> + 1M ctx
-- new: auto-detect provider (bedrock → ollama)
-- new: </span><span class="hl">DOER_PROVIDER</span><span class="out">, </span><span class="hl">DOER_BEDROCK_*</span><span class="out"> knobs</span>
+<span class="prompt">$</span> <span class="cmd">do --img screenshot.png "what's in this UI?"</span>
+<span class="out">login form, 3 fields, submit button disabled.
+a password validator is throwing — check </span><span class="hl">password_regex.py:22</span><span class="out"></span>
+
+<span class="prompt">$</span> <span class="cmd">do --train 200 && DOER_PROVIDER=mlx DOER_ADAPTER=~/.doer_adapter do "reply terse"</span>
+<span class="out">loading 127 turns...
+training LoRA (rank 8, 200 iters)...
+✓ saved → ~/.doer_adapter
+ok.</span>
 
 <span class="prompt">$</span> <span class="cursor"></span>
 </div>
@@ -80,7 +84,7 @@ Not a chatbot. Not a wrapper. **`grep` with a brain.**
 
 -   :material-feather: __Small is kind__
 
-    **~420 lines** of Python. One dep. Auditable in a lunch break. Includes its own LoRA training loop.
+    **~730 lines** of Python. Core is one dep. Auditable in an afternoon. Closes its own training loop (text + VLM).
 
 -   :material-magnify: __Transparent__
 

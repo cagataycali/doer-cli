@@ -39,7 +39,7 @@ Two binaries land on `$PATH`: **`do`** (short) and **`doer`** (long).
 
 > `do` is a shell keyword in bash/zsh loops — the binary still works because of the argument (`do "hi"` is unambiguous), but if tab-completion misbehaves, alias it:
 > ```bash
-> echo 'alias d="doer"' >> ~/.zshrc
+> echo 'alias do="doer"' >> ~/.zshrc
 > ```
 
 ## run
@@ -138,6 +138,7 @@ DOER_VLM_ADAPTER=                # path to trained VLM LoRA
 DOER_HISTORY=10                  # Q/A rows in prompt
 DOER_SHELL_HISTORY=20            # shell rows in prompt
 DOER_DEBUG=                      # "1" → verbose errors
+DOER_MAX_SEQ_LEN=16384           # LoRA training max seq length
 
 # huggingface upload
 DOER_HF_REPO=<user>/doer-training   # override target

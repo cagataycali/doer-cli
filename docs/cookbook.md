@@ -18,6 +18,25 @@ git log -20 --oneline | do "write release notes, markdown, grouped by type"
 git log --oneline -50 | do "which commit likely broke test_auth?"
 ```
 
+## multimodal
+
+```bash
+# screenshot debugging — point at a broken UI
+do --img screenshot.png "what's wrong here, one fix per line"
+
+# audio meeting notes
+do --audio standup.wav "transcribe + 3-bullet summary"
+
+# video in 30s
+do --video clip.mp4 "describe the scene in one sentence"
+
+# diff two images
+do --img before.png --img after.png "what changed?"
+
+# omni: slide deck + narration → notes
+do --img slide.png --audio narration.wav "condense to presenter notes"
+```
+
 ## shell archaeology
 
 ```bash

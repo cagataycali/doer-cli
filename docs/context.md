@@ -34,6 +34,10 @@ Every call, the agent reads your shell **like a person reads a room**.
 
     Full `doer/__init__.py` is in the system prompt. Full self-awareness.
 
+-   **`--img` / `--audio` / `--video`**
+
+    Raw media attached at call time. Routes to `mlx-vlm` (vision, audio, or omni model) automatically.
+
 </div>
 
 ## how the prompt is assembled
@@ -53,6 +57,9 @@ Every call, the agent reads your shell **like a person reads a room**.
 │ 6. last N shell commands         │
 ├──────────────────────────────────┤
 │ 7. your query + stdin            │
+├──────────────────────────────────┤
+│ 8. --img / --audio / --video     │
+│    (raw bytes, VLM-routed)       │
 └──────────────────────────────────┘
 ```
 

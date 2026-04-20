@@ -34,6 +34,17 @@ Three paths. All three give you `do` and `doer` on your `$PATH`.
         ```
         Installs to `~/.local/bin`. No Python required.
 
+### optional extras
+
+```bash
+pip install 'doer-cli[mlx]'   # local text inference + LoRA training (Apple Silicon)
+pip install 'doer-cli[vlm]'   # vision/audio/video + VLM LoRA (Apple Silicon)
+pip install 'doer-cli[hf]'    # huggingface dataset upload for your training corpus
+pip install 'doer-cli[all]'   # everything above
+```
+
+Each extra is opt-in. The default install stays lean.
+
 ## two binaries, one brain
 
 ```bash
@@ -51,10 +62,18 @@ Both resolve to the same entry point.
 | [Ollama](https://ollama.com) *or* AWS creds | one of the two — `doer` auto-detects              |
 | A model                                     | `ollama pull qwen3:1.7b` *or* Bedrock Claude access *or* MLX base (auto-download) |
 | Apple Silicon *(for MLX only)*              | M1/M2/M3/M4 Mac — opt-in `[mlx]` extra           |
+| Apple Silicon *(for multimodal)*            | `[vlm]` extra — vision/audio/video via `mlx-vlm`   |
 
 ## pick a backend
 
-`doer` auto-detects at runtime: **Bedrock if AWS creds exist, else MLX if on Apple Silicon with `[mlx]` installed, else Ollama.** Override with `DOER_PROVIDER=bedrock|mlx|ollama`.
+`doer` auto-detects at runtime:
+
+1. `--img`/`--audio`/`--video` flag present **and** `mlx-vlm` installed → **mlx-vlm** (routes to vision/audio/omni model)
+2. AWS creds present (`AWS_BEARER_TOKEN_BEDROCK` / STS / SSO) → **bedrock**
+3. Apple Silicon **and** `strands_mlx` installed → **mlx**
+4. Fallback → **ollama**
+
+Override with `DOER_PROVIDER=bedrock|mlx|mlx-vlm|ollama`.
 
 ### bedrock (cloud, default)
 
@@ -139,6 +158,36 @@ DOER_MLX_MODEL=mlx-community/Qwen3-4B-4bit do "..."
 ```
 
 See [**Train on yourself**](train.md) for the full collect → train → swap loop.
+
+
+### mlx-vlm (multimodal on Apple Silicon, opt-in)
+
+Vision, audio, and video via `mlx-vlm` — routed automatically when you pass
+`--img`, `--audio`, or `--video` flags.
+
+```bash
+pip install 'doer-cli[vlm]'        # adds mlx-vlm + datasets
+
+do --img screenshot.png  "what's in this UI?"
+do --audio meeting.wav   "transcribe + action items"
+do --video clip.mp4      "what's happening here?"
+do --img a.png --audio b.wav "..."   # omni model (auto-picked)
+```
+
+Models are auto-selected based on the modality mix; override with env vars:
+
+| modality        | default model                                           | env override             |
+|-----------------|---------------------------------------------------------|--------------------------|
+| image only      | `mlx-community/Qwen2.5-VL-3B-Instruct-4bit`             | `DOER_MLX_VLM_MODEL`     |
+| audio only      | `mlx-community/gemma-3n-E2B-it-4bit`                    | `DOER_MLX_AUDIO_MODEL`   |
+| image + audio   | `mlx-community/Qwen3-Omni-30B-A3B-Instruct-4bit`        | `DOER_MLX_OMNI_MODEL`    |
+
+Train a VLM LoRA on your own multimodal corpus:
+
+```bash
+do --train-vlm 300                             # → ~/.doer_vlm_adapter
+DOER_PROVIDER=mlx-vlm DOER_VLM_ADAPTER=~/.doer_vlm_adapter do --img x.png "..."
+```
 
 ## troubleshooting
 

@@ -1,5 +1,5 @@
 site_name: DOER
-site_description: A Unix citizen that thinks. stdin → llm → stdout.
+site_description: A Unix citizen that thinks. In text, images, audio, and video.
 site_url: https://doer.duck.nyc/
 repo_url: https://github.com/cagataycali/doer-cli
 repo_name: cagataycali/doer-cli
@@ -54,6 +54,10 @@ extra:
     - llm
     - pipe
     - ollama
+    - bedrock
+    - mlx
+    - multimodal
+    - lora
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/cagataycali/doer-cli

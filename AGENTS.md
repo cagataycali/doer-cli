@@ -72,10 +72,12 @@ Built fresh on every call by `_build_prompt()`:
 | `DOER_SHELL_HISTORY`             | `20`                                              | shell cmds in prompt          |
 | `DOER_MLX_MODEL`                 | `mlx-community/Qwen3-1.7B-4bit`                   | mlx model id (Apple Silicon)  |
 | `DOER_ADAPTER`                   | *(unset)*                                         | LoRA adapter path (hot-swap)  |
+| `DOER_MAX_SEQ_LEN`               | `16384`                                           | mlx LoRA training max seq len |
 | `DOER_MLX_VLM_MODEL`             | `mlx-community/Qwen2.5-VL-3B-Instruct-4bit`       | vision model (--img)          |
 | `DOER_MLX_AUDIO_MODEL`            | `mlx-community/gemma-3n-E2B-it-4bit`              | audio model (--audio)         |
 | `DOER_MLX_OMNI_MODEL`             | `mlx-community/Qwen3-Omni-30B-A3B-Instruct-4bit`  | omni (img+audio mix)          |
 | `DOER_VLM_ADAPTER`                | *(unset)*                                         | VLM LoRA adapter path         |
+| `DOER_MAX_SEQ_LEN`                | `16384`                                           | LoRA training max seq length  |
 | `DOER_DEBUG`                     | *(unset)*                                         | print training-log errors     |
 | `DOER_HF_REPO`                   | `<hf-user>/doer-training`                         | target HF dataset for upload  |
 | `HF_TOKEN`                       | *(fallback: `~/.cache/huggingface/token`)*        | HuggingFace auth token        |
