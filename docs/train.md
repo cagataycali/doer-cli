@@ -29,6 +29,17 @@ do --train 200                     # 200 LoRA iters, rank 8, AdamW, lr 1e-5
 DOER_PROVIDER=mlx DOER_ADAPTER=~/.doer_adapter do "fix the failing test"
 ```
 
+!!! tip "automate collection"
+    `doer` doesn't ship a scheduler — use real cron.
+
+    ```cron
+    */5 * * * * cd ~/repo && doer "read a random file, explain it" >/dev/null 2>&1
+    ```
+
+    One line. Survives reboots. Appends to `~/.doer_training.jsonl` forever.
+    Cron strips your env, so export `AWS_BEARER_TOKEN_BEDROCK` (or your
+    provider creds) inside the script if the shell doesn't inherit it.
+
 ## what gets recorded
 
 Every `do "..."` call appends **one JSON line** to `~/.doer_training.jsonl`:
