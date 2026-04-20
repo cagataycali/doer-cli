@@ -4,16 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "doer-cli"
-version = "0.3.0"
+version = "0.4.0"
 description = "doer — one-file pipe-native agent. strands-agents + ollama only."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
-    "strands-agents[ollama]",
-]
-
-[project.optional-dependencies]
-mlx = ["strands-mlx>=0.2.6"]   # Apple Silicon: local inference + LoRA training
 authors = [{name = "cagataycali"}]
 license = {text = "Apache-2.0"}
 keywords = ["ai", "agent", "ollama", "cli", "pipe", "unix"]
@@ -24,6 +18,12 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Utilities",
 ]
+dependencies = [
+    "strands-agents[ollama]",
+]
+
+[project.optional-dependencies]
+mlx = ["strands-mlx>=0.2.6"]
 
 [project.urls]
 Homepage = "https://github.com/cagataycali/doer-cli"
