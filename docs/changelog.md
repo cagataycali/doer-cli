@@ -2,6 +2,21 @@
 
 Compressed history. Newest first.
 
+## v0.6.0 — *cloud training (HuggingFace Jobs)*
+
+- **`hf_jobs/` suite** — burn HF credits instead of battery for scale-up training
+  - `hf_jobs/train_text_lora.py` — any causal LM → LoRA → merged push (Qwen3-1.7B default)
+  - `hf_jobs/train_vlm.py` — Qwen2.5-VL-3B image+text LoRA
+  - `hf_jobs/train_omni.py` — Qwen2.5-Omni-7B text+audio+image LoRA
+  - `hf_jobs/launch.sh` — one-shot dispatcher (`text`/`vlm`/`omni`/`ps`/`logs`/`hw`)
+- **One file per trainer, inline UV deps** — no repo setup, no Dockerfile, `hf jobs uv run` handles everything
+- **Raw JSONL loading** via `hf_hub_download` — bypasses Arrow schema churn on heterogeneous multimodal records
+- **Merge + push by default** — output is a drop-in for `transformers.AutoModelForCausalLM.from_pretrained`, no `peft` glue on the consumer side
+- **Tool calls preserved** — Strands `toolUse`/`toolResult` become native `<tool_call>`/`<tool_result>` tags so the chat template lays down real tool-call tokens
+- **Validated end-to-end**: T4-medium, 522 records → 468/53, 50 steps / 33 min, eval_loss **0.149**, token accuracy **97.6%**, 3.44 GB merged model auto-pushed
+- Local `--train` / `--train-vlm` unchanged — cloud is opt-in, laptop-first stays default
+- New docs: [`train.md#train-in-the-cloud-huggingface-jobs`](train.md#train-in-the-cloud-huggingface-jobs)
+
 ## v0.5.0 — *multimodal + dataset publishing*
 
 - **Multimodal input** — `--img`, `--audio`, `--video` flags route to `mlx-vlm` automatically

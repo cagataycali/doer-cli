@@ -155,6 +155,45 @@ cp /tmp/d/data/train.jsonl ~/.doer_training.jsonl
 do --train 200
 ```
 
+## train in the cloud (HuggingFace Jobs)
+
+Laptop LoRA caps out at ~1.7B models on Apple Silicon. For anything bigger — full fine-tunes, Qwen3-4B+, VLM, Omni — burn HF credits instead of battery. Doer ships three single-file UV scripts under `hf_jobs/` that run directly on HF infrastructure via `hf jobs uv run`.
+
+```bash
+# one-shot dispatchers (reads from cagataydev/doer-training, pushes merged model)
+./hf_jobs/launch.sh text                    # Qwen3-1.7B LoRA, T4, ~$0.30
+./hf_jobs/launch.sh vlm                     # Qwen2.5-VL-3B image+text, A100, ~$5
+./hf_jobs/launch.sh omni                    # Qwen2.5-Omni-7B, H200, ~$10
+
+# override anything via env or pass-through flags
+MODEL=Qwen/Qwen3-4B FLAVOR=a10g-large ./hf_jobs/launch.sh text --iters 1000
+
+# monitor
+./hf_jobs/launch.sh ps
+./hf_jobs/launch.sh logs <job_id>
+./hf_jobs/launch.sh hw              # hardware list + $/hour
+```
+
+Each trainer is **one file** with inline UV deps — no repo setup, no Dockerfile. It pulls the dataset via `hf_hub_download` (raw JSONL, bypasses Arrow schema issues caused by heterogeneous records), runs SFT LoRA with `trl` + `peft`, **merges the adapter into the base**, and pushes the full merged model to `cagataydev/doer-<model-short>` (private).
+
+Merged output is a drop-in for `transformers.AutoModelForCausalLM.from_pretrained` — no LoRA glue required on the consumer side.
+
+**Validated on T4-medium (v0.6.0 release):** 522 records → 468 train / 53 eval, Qwen3-1.7B LoRA r=16 (17.4M params, 1.00%), 50 steps in 33 min → eval_loss **0.149**, token accuracy **97.6%**, 3.44 GB merged model uploaded automatically.
+
+Use the trained model anywhere:
+
+```bash
+# inference via transformers (any platform)
+DOER_PROVIDER=transformers DOER_MODEL=cagataydev/doer-qwen3-17b do "what is doer"
+
+# convert to MLX for Apple Silicon
+mlx_lm.convert --hf-path cagataydev/doer-qwen3-17b -q --q-bits 4 \
+               --mlx-path ~/.cache/doer-mlx
+DOER_PROVIDER=mlx DOER_MLX_MODEL=~/.cache/doer-mlx do "..."
+```
+
+See `hf_jobs/README.md` in the repo for the full cost table, design rules, and extend instructions.
+
 ## env knobs
 
 | var | default | purpose |
