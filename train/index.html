@@ -1,0 +1,1520 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Unix citizen that thinks. In text, images, audio, and video.">
+      
+      
+      
+        <link rel="canonical" href="https://doer.duck.nyc/train/">
+      
+      
+        <link rel="prev" href="../extend/">
+      
+      
+        <link rel="next" href="../philosophy/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../doer.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Train - DOER</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Space+Grotesk:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Space Grotesk";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/brand.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  <meta property="og:title" content="Train · DOER">
+  <meta property="og:description" content="A Unix citizen that thinks. stdin → llm → stdout. One file. One dep.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://doer.duck.nyc/train/">
+  <meta property="og:image" content="https://doer.duck.nyc/doer.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Train · DOER">
+  <meta name="twitter:description" content="A Unix citizen that thinks. stdin → llm → stdout.">
+  <meta name="twitter:image" content="https://doer.duck.nyc/doer.svg">
+  <meta name="keywords" content="cli, unix, llm, ollama, pipe, agent, terminal, ai, doer">
+  <meta name="author" content="cagataycali">
+  <meta name="theme-color" content="#FF3D00">
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#train-on-yourself" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="DOER" class="md-header__button md-logo" aria-label="DOER" data-md-component="logo">
+      
+  <img src="../doer.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            DOER
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Train
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="deep-orange"  aria-label="Light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="deep-orange"  aria-label="Dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/cagataycali/doer-cli" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cagataycali/doer-cli
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../install/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Install
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../usage/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Usage
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../cookbook/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Cookbook
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../context/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Context
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../extend/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Extend
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Train
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../philosophy/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Philosophy
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="DOER" class="md-nav__button md-logo" aria-label="DOER" data-md-component="logo">
+      
+  <img src="../doer.svg" alt="logo">
+
+    </a>
+    DOER
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/cagataycali/doer-cli" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cagataycali/doer-cli
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cookbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Train
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Train
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        the loop
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-gets-recorded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        what gets recorded
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="what gets recorded">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-fat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        why fat
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-native-tool-call-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        why native tool-call tokens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-train-does-text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        what --train does (text)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-train-vlm-does-vision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        what --train-vlm does (vision)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#share-the-dataset-huggingface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        share the dataset (HuggingFace)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#train-in-the-cloud-huggingface-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        train in the cloud (HuggingFace Jobs)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#env-knobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        env knobs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependency-footprint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dependency footprint
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#privacy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        privacy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-this-matters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        when this matters
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../philosophy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Philosophy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        the loop
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-gets-recorded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        what gets recorded
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="what gets recorded">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-fat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        why fat
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-native-tool-call-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        why native tool-call tokens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-train-does-text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        what --train does (text)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-train-vlm-does-vision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        what --train-vlm does (vision)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#share-the-dataset-huggingface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        share the dataset (HuggingFace)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#train-in-the-cloud-huggingface-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        train in the cloud (HuggingFace Jobs)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#env-knobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        env knobs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependency-footprint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dependency footprint
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#privacy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        privacy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-this-matters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        when this matters
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="train-on-yourself">Train on yourself<a class="headerlink" href="#train-on-yourself" title="Permanent link">&para;</a></h1>
+<p><code>doer</code> closes its own loop. Collect → train → hot-swap. Text, vision, audio, video — all in one file. No new services.</p>
+<div class="ascii-box">use doer                  do --train              DOER_ADAPTER=...
+   │                         do --train-vlm                │
+   ▼                            │                          ▼
+~/.doer_training.jsonl  →  mlx_lm.tuner       →  ~/.doer_adapter/...
+                         or mlx_vlm.lora      →  ~/.doer_vlm_adapter/...</div>
+
+<h2 id="the-loop">the loop<a class="headerlink" href="#the-loop" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># 1. collect — every `do &quot;...&quot;` call appends a full turn</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">do</span><span class="w"> </span><span class="s2">&quot;fix the failing test&quot;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">do</span><span class="w"> </span>--img<span class="w"> </span>screenshot.png<span class="w"> </span><span class="s2">&quot;label the bugs&quot;</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">do</span><span class="w"> </span>--audio<span class="w"> </span>standup.wav<span class="w">  </span><span class="s2">&quot;bullet the action items&quot;</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># ... keep using doer for real work, ~100+ turns across modalities</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># 2. inspect your corpus</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">do</span><span class="w"> </span>--train-status
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># → 127 turns | 2453.1KB | sha256:250c406b | /Users/you/.doer_training.jsonl</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1">#     text:102  image:18  audio:3  video:4</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1">#     hf:    cagataydev/doer-training | in sync</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># 3. train (Apple Silicon only)</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;doer-cli[mlx]&#39;</span><span class="w">        </span><span class="c1"># text LoRA</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;doer-cli[vlm]&#39;</span><span class="w">        </span><span class="c1"># vision LoRA (adds mlx-vlm + datasets)</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="k">do</span><span class="w"> </span>--train<span class="w"> </span><span class="m">200</span><span class="w">                     </span><span class="c1"># text LoRA   → ~/.doer_adapter</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="k">do</span><span class="w"> </span>--train-vlm<span class="w"> </span><span class="m">300</span><span class="w">                 </span><span class="c1"># vision LoRA → ~/.doer_vlm_adapter</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="c1"># 4. hot-swap your trained self</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="nv">DOER_PROVIDER</span><span class="o">=</span>mlx<span class="w">     </span><span class="nv">DOER_ADAPTER</span><span class="o">=</span>~/.doer_adapter<span class="w">         </span><span class="k">do</span><span class="w"> </span><span class="s2">&quot;fix the failing test&quot;</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="nv">DOER_PROVIDER</span><span class="o">=</span>mlx-vlm<span class="w"> </span><span class="nv">DOER_VLM_ADAPTER</span><span class="o">=</span>~/.doer_vlm_adapter<span class="w"> </span><span class="k">do</span><span class="w"> </span>--img<span class="w"> </span>x.png<span class="w"> </span><span class="s2">&quot;what&#39;s this?&quot;</span>
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">automate collection</p>
+<p><code>doer</code> doesn't ship a scheduler — use real cron.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>*/5 * * * * cd ~/repo &amp;&amp; doer &quot;read a random file, explain it&quot; &gt;/dev/null 2&gt;&amp;1
+</span></code></pre></div>
+<p>One line. Survives reboots. Appends to <code>~/.doer_training.jsonl</code> forever.
+Cron strips your env, so export <code>AWS_BEARER_TOKEN_BEDROCK</code> (or your
+provider creds) inside the script if the shell doesn't inherit it.</p>
+</div>
+<h2 id="what-gets-recorded">what gets recorded<a class="headerlink" href="#what-gets-recorded" title="Permanent link">&para;</a></h2>
+<p>Every <code>do "..."</code> call appends <strong>one JSON line</strong> to <code>~/.doer_training.jsonl</code>:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;ts&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1776587093</span><span class="p">,</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bedrock global.anthropic.claude-opus-4-7 @ us-west-2&quot;</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">&quot;query&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;original user query&quot;</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">&quot;system&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;full _build_prompt() — SOUL + AGENTS + history + source, ~20KB&gt;&quot;</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">&quot;messages&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;role&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user&quot;</span><span class="p">,</span><span class="w">      </span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;image&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="err">...</span><span class="p">}}]},</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;role&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;assistant&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;toolUse&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="err">...</span><span class="p">}}]},</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;role&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user&quot;</span><span class="p">,</span><span class="w">      </span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;toolResult&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="err">...</span><span class="p">}}]},</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;role&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;assistant&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">}]}</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="p">],</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span><span class="nt">&quot;tools&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;shell&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_schema&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="err">...</span><span class="p">}}],</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">  </span><span class="nt">&quot;media&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;images&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;./shot.png&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;audio&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span><span class="w"> </span><span class="nt">&quot;video&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]}</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="why-fat">why fat<a class="headerlink" href="#why-fat" title="Permanent link">&para;</a></h3>
+<p>Disk is cheap. 20KB × 1000 turns ≈ 20MB.</p>
+<p>The system prompt is <strong>already</strong> the live prompt that regenerates every call
+(cwd, history, source). Training on it matches how the model will be used.
+Self-contained records are ops-simple: you can delete the live repo tomorrow
+and the corpus still trains.</p>
+<h3 id="why-native-tool-call-tokens">why native tool-call tokens<a class="headerlink" href="#why-native-tool-call-tokens" title="Permanent link">&para;</a></h3>
+<p>Under the hood, <code>_strands_to_openai()</code> converts Strands <code>ContentBlock</code>
+messages to OpenAI chat format — <strong>with <code>tool_calls</code> kept as structured
+data</strong>, not stringified. When <code>mlx_lm</code> applies the tokenizer's chat
+template, Qwen/Llama/etc. emit their <strong>native</strong> tool-call tokens (e.g.
+<code>&lt;tool_call&gt;...&lt;/tool_call&gt;</code>).</p>
+<p>The adapter learns <strong>real</strong> tool use. Not a string-matching impression of it.</p>
+<h2 id="what-train-does-text">what <code>--train</code> does (text)<a class="headerlink" href="#what-train-does-text" title="Permanent link">&para;</a></h2>
+<p>Under ~50 lines. Calls <code>mlx_lm.tuner</code> directly. No <code>strands-mlx</code> trainer indirection.</p>
+<table>
+<thead>
+<tr>
+<th>step</th>
+<th>detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>load model</td>
+<td><code>DOER_MLX_MODEL</code> (default <code>mlx-community/Qwen3-1.7B-4bit</code>)</td>
+</tr>
+<tr>
+<td>filter</td>
+<td>drop records with empty <code>messages</code> <strong>and</strong> skip any record carrying media (those go to <code>--train-vlm</code>)</td>
+</tr>
+<tr>
+<td>split</td>
+<td>90% train / 10% valid, seeded shuffle</td>
+</tr>
+<tr>
+<td>convert</td>
+<td>Strands → OpenAI <code>{messages, tools}</code></td>
+</tr>
+<tr>
+<td>LoRA</td>
+<td>rank 8, scale 20.0, 8 layers, no dora</td>
+</tr>
+<tr>
+<td>optimizer</td>
+<td>AdamW, lr <code>1e-5</code></td>
+</tr>
+<tr>
+<td>checkpoint</td>
+<td>every <code>max(100, iters//2)</code> steps</td>
+</tr>
+<tr>
+<td>output</td>
+<td><code>~/.doer_adapter/adapters.safetensors</code> + <code>adapter_config.json</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-train-vlm-does-vision">what <code>--train-vlm</code> does (vision)<a class="headerlink" href="#what-train-vlm-does-vision" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;doer-cli[vlm]&#39;</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">do</span><span class="w"> </span>--train-vlm<span class="w"> </span><span class="m">300</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>step</th>
+<th>detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>load model</td>
+<td><code>DOER_MLX_VLM_MODEL</code> (default <code>mlx-community/Qwen2.5-VL-3B-Instruct-4bit</code>)</td>
+</tr>
+<tr>
+<td>filter</td>
+<td><strong>keep only</strong> records that carry image/audio/video media</td>
+</tr>
+<tr>
+<td>compact</td>
+<td>flatten multimodal <code>ContentBlock</code>s into a chat-template–friendly form</td>
+</tr>
+<tr>
+<td>LoRA</td>
+<td>rank 8 on vision projector + LM layers</td>
+</tr>
+<tr>
+<td>output</td>
+<td><code>~/.doer_vlm_adapter/adapters.safetensors</code> + <code>adapter_config.json</code></td>
+</tr>
+</tbody>
+</table>
+<p>Use the trained adapter by pointing <code>DOER_VLM_ADAPTER</code> at it:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">DOER_PROVIDER</span><span class="o">=</span>mlx-vlm<span class="w"> </span><span class="nv">DOER_VLM_ADAPTER</span><span class="o">=</span>~/.doer_vlm_adapter<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="k">do</span><span class="w"> </span>--img<span class="w"> </span>login.png<span class="w"> </span><span class="s2">&quot;spot the accessibility issues&quot;</span>
+</span></code></pre></div>
+<h2 id="share-the-dataset-huggingface">share the dataset (HuggingFace)<a class="headerlink" href="#share-the-dataset-huggingface" title="Permanent link">&para;</a></h2>
+<p>Keep your corpus in sync across machines. Back it up. Or train remotely.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;doer-cli[hf]&#39;</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">do</span><span class="w"> </span>--upload-hf<span class="w">                        </span><span class="c1"># → &lt;user&gt;/doer-training (private)</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">do</span><span class="w"> </span>--upload-hf<span class="w"> </span>cagataydev/my-data<span class="w">     </span><span class="c1"># custom repo</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">do</span><span class="w"> </span>--upload-hf-public<span class="w">                 </span><span class="c1"># public dataset</span>
+</span></code></pre></div>
+<p>Idempotent — a single atomic commit per run (<code>data/train.jsonl</code> + a README
+with schema, stats, sha). Reuses <code>huggingface-cli login</code> or <code>HF_TOKEN</code>.</p>
+<p>Check sync state:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">do</span><span class="w"> </span>--train-status
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># → 127 turns | 2453.1KB | sha256:250c406b | ~/.doer_training.jsonl</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1">#     text:102  image:18  audio:3  video:4</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1">#     hf:    cagataydev/doer-training | upload 127 turns (...) | in sync</span>
+</span></code></pre></div>
+<p><strong>Round-trip elsewhere:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>hf<span class="w"> </span>download<span class="w"> </span>cagataydev/doer-training<span class="w"> </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span>--local-dir<span class="w"> </span>/tmp/d
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>cp<span class="w"> </span>/tmp/d/data/train.jsonl<span class="w"> </span>~/.doer_training.jsonl
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">do</span><span class="w"> </span>--train<span class="w"> </span><span class="m">200</span>
+</span></code></pre></div>
+<h2 id="train-in-the-cloud-huggingface-jobs">train in the cloud (HuggingFace Jobs)<a class="headerlink" href="#train-in-the-cloud-huggingface-jobs" title="Permanent link">&para;</a></h2>
+<p>Laptop LoRA caps out at ~1.7B models on Apple Silicon. For anything bigger — full fine-tunes, Qwen3-4B+, VLM, Omni — burn HF credits instead of battery. Doer bundles three single-file UV scripts under <code>doer/hf_jobs/</code> (accessible via <code>doer --hf-jobs</code> after install) that run directly on HF infrastructure via <code>hf jobs uv run</code>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># one-shot dispatchers (reads from cagataydev/doer-training, pushes merged model)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>doer<span class="w"> </span>--hf-jobs<span class="w"> </span>gen<span class="w">                     </span><span class="c1"># Generate records (CPU, ~$0.60/500 prompts)</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>doer<span class="w"> </span>--hf-jobs<span class="w"> </span>text<span class="w">                    </span><span class="c1"># Qwen3-1.7B LoRA, T4, ~$0.30</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>doer<span class="w"> </span>--hf-jobs<span class="w"> </span>vlm<span class="w">                     </span><span class="c1"># Qwen2.5-VL-3B image+text, A100, ~$5</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>doer<span class="w"> </span>--hf-jobs<span class="w"> </span>omni<span class="w">                    </span><span class="c1"># Qwen2.5-Omni-7B, H200, ~$10</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># generate your own records from a prompts file or HF dataset</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>doer<span class="w"> </span>--hf-jobs<span class="w"> </span>gen<span class="w"> </span>my_prompts.txt<span class="w"> </span>--iters<span class="w"> </span><span class="m">500</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>doer<span class="w"> </span>--hf-jobs<span class="w"> </span>gen<span class="w"> </span>hf://Anthropic/hh-rlhf:chosen<span class="w"> </span>--iters<span class="w"> </span><span class="m">1000</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="c1"># override anything via env or pass-through flags</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="nv">MODEL</span><span class="o">=</span>Qwen/Qwen3-4B<span class="w"> </span><span class="nv">FLAVOR</span><span class="o">=</span>a10g-large<span class="w"> </span>doer<span class="w"> </span>--hf-jobs<span class="w"> </span>text<span class="w"> </span>--iters<span class="w"> </span><span class="m">1000</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="c1"># monitor</span>
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>doer<span class="w"> </span>--hf-jobs<span class="w"> </span>ps
+</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>doer<span class="w"> </span>--hf-jobs<span class="w"> </span>logs<span class="w"> </span>&lt;job_id&gt;
+</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>doer<span class="w"> </span>--hf-jobs<span class="w"> </span>hw<span class="w">              </span><span class="c1"># hardware list + $/hour</span>
+</span></code></pre></div>
+<p>Each trainer is <strong>one file</strong> with inline UV deps — no repo setup, no Dockerfile. It pulls the dataset via <code>hf_hub_download</code> (raw JSONL, bypasses Arrow schema issues caused by heterogeneous records), runs SFT LoRA with <code>trl</code> + <code>peft</code>, <strong>merges the adapter into the base</strong>, and pushes the full merged model to <code>cagataydev/doer-&lt;model-short&gt;</code> (private).</p>
+<p>Merged output is a drop-in for <code>transformers.AutoModelForCausalLM.from_pretrained</code> — no LoRA glue required on the consumer side.</p>
+<p><strong>Validated on T4-medium (v0.6.0 release):</strong> 522 records → 468 train / 53 eval, Qwen3-1.7B LoRA r=16 (17.4M params, 1.00%), 50 steps in 33 min → eval_loss <strong>0.149</strong>, token accuracy <strong>97.6%</strong>, 3.44 GB merged model uploaded automatically.</p>
+<p>Use the trained model anywhere:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># inference via transformers (any platform)</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nv">DOER_PROVIDER</span><span class="o">=</span>transformers<span class="w"> </span><span class="nv">DOER_MODEL</span><span class="o">=</span>cagataydev/doer-qwen3-17b<span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="s2">&quot;what is doer&quot;</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># convert to MLX for Apple Silicon</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>mlx_lm.convert<span class="w"> </span>--hf-path<span class="w"> </span>cagataydev/doer-qwen3-17b<span class="w"> </span>-q<span class="w"> </span>--q-bits<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">               </span>--mlx-path<span class="w"> </span>~/.cache/doer-mlx
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="nv">DOER_PROVIDER</span><span class="o">=</span>mlx<span class="w"> </span><span class="nv">DOER_MLX_MODEL</span><span class="o">=</span>~/.cache/doer-mlx<span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="s2">&quot;...&quot;</span>
+</span></code></pre></div>
+<p>See <code>hf_jobs/README.md</code> in the repo for the full cost table, design rules, and extend instructions.</p>
+<h2 id="env-knobs">env knobs<a class="headerlink" href="#env-knobs" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>var</th>
+<th>default</th>
+<th>purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DOER_MLX_MODEL</code></td>
+<td><code>mlx-community/Qwen3-1.7B-4bit</code></td>
+<td>base model for text training + MLX inference</td>
+</tr>
+<tr>
+<td><code>DOER_ADAPTER</code></td>
+<td><em>(unset)</em></td>
+<td>path to text LoRA adapter for hot-swap</td>
+</tr>
+<tr>
+<td><code>DOER_MLX_VLM_MODEL</code></td>
+<td><code>mlx-community/Qwen2.5-VL-3B-Instruct-4bit</code></td>
+<td>vision base model (image)</td>
+</tr>
+<tr>
+<td><code>DOER_MLX_AUDIO_MODEL</code></td>
+<td><code>mlx-community/gemma-3n-E2B-it-4bit</code></td>
+<td>audio base model</td>
+</tr>
+<tr>
+<td><code>DOER_MLX_OMNI_MODEL</code></td>
+<td><code>mlx-community/Qwen3-Omni-30B-A3B-Instruct-4bit</code></td>
+<td>mixed (image + audio) base model</td>
+</tr>
+<tr>
+<td><code>DOER_VLM_ADAPTER</code></td>
+<td><em>(unset)</em></td>
+<td>path to VLM LoRA adapter for hot-swap</td>
+</tr>
+<tr>
+<td><code>DOER_HF_REPO</code></td>
+<td><code>&lt;user&gt;/doer-training</code></td>
+<td>target HF dataset repo</td>
+</tr>
+<tr>
+<td><code>HF_TOKEN</code></td>
+<td><em>(fallback: <code>~/.cache/huggingface/token</code>)</em></td>
+<td>HF auth</td>
+</tr>
+<tr>
+<td><code>DOER_MAX_SEQ_LEN</code></td>
+<td><code>16384</code></td>
+<td>max sequence length for LoRA training (raise for long records, lower to save RAM)</td>
+</tr>
+<tr>
+<td><code>DOER_DEBUG</code></td>
+<td><em>(unset)</em></td>
+<td>print training-log append errors</td>
+</tr>
+</tbody>
+</table>
+<h2 id="commands">commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">do</span><span class="w"> </span>--train<span class="w">              </span><span class="c1"># text LoRA, 200 iters</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">do</span><span class="w"> </span>--train<span class="w"> </span><span class="m">500</span><span class="w">          </span><span class="c1"># text LoRA, 500 iters</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">do</span><span class="w"> </span>--train-vlm<span class="w">          </span><span class="c1"># vision LoRA, 300 iters</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="k">do</span><span class="w"> </span>--train-vlm<span class="w"> </span><span class="m">500</span><span class="w">      </span><span class="c1"># vision LoRA, 500 iters</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="k">do</span><span class="w"> </span>--train-status<span class="w">       </span><span class="c1"># corpus stats + modality breakdown + HF sync</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="k">do</span><span class="w"> </span>--upload-hf<span class="w">          </span><span class="c1"># push corpus to private HF dataset</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="k">do</span><span class="w"> </span>--upload-hf-public<span class="w">   </span><span class="c1"># push corpus to public HF dataset</span>
+</span></code></pre></div>
+<h2 id="dependency-footprint">dependency footprint<a class="headerlink" href="#dependency-footprint" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pip<span class="w"> </span>install<span class="w"> </span>doer-cli<span class="w">              </span><span class="c1"># core — no training, no mlx, no upload</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;doer-cli[mlx]&#39;</span><span class="w">       </span><span class="c1"># + strands-mlx + mlx-lm  — text training + MLX inference</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;doer-cli[vlm]&#39;</span><span class="w">       </span><span class="c1"># + mlx-vlm + datasets    — multimodal + VLM training</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;doer-cli[hf]&#39;</span><span class="w">        </span><span class="c1"># + huggingface-hub       — corpus upload</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;doer-cli[all]&#39;</span><span class="w">       </span><span class="c1"># everything</span>
+</span></code></pre></div>
+<p>Each extra is lazy-imported — zero cost if unused.</p>
+<h2 id="privacy">privacy<a class="headerlink" href="#privacy" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>ls<span class="w"> </span>-l<span class="w"> </span>~/.doer_training.jsonl
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="c1"># -rw-------  1 you  staff  2453133 Apr 20 01:44</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>rm<span class="w"> </span>~/.doer_training.jsonl<span class="w">              </span><span class="c1"># nuke corpus</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>rm<span class="w"> </span>-rf<span class="w"> </span>~/.doer_adapter<span class="w"> </span>~/.doer_vlm_adapter<span class="w">   </span><span class="c1"># nuke adapters</span>
+</span></code></pre></div>
+<p>Mode <code>0600</code>. Never leaves your machine unless <strong>you</strong> run <code>--upload-hf</code>.
+Your <strong>filesystem</strong> is the training loop.</p>
+<h2 id="when-this-matters">when this matters<a class="headerlink" href="#when-this-matters" title="Permanent link">&para;</a></h2>
+<ul>
+<li>You keep typing the same kinds of queries → fine-tune on your own Q/A.</li>
+<li>You have project-specific idioms (<code>SOUL.md</code>, <code>AGENTS.md</code>) → the adapter absorbs them.</li>
+<li>You screenshot bugs all day → train a VLM adapter on <strong>your</strong> UI + <strong>your</strong> feedback style.</li>
+<li>You want a <strong>small, fast, offline</strong> model that knows <em>your</em> voice → train on 4am Bedrock turns, serve from MLX the next morning.</li>
+</ul>
+<blockquote>
+<p><strong>The cathedral labels the tokens. The chisel learns them.</strong></p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../extend/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Extend">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Extend
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../philosophy/" class="md-footer__link md-footer__link--next" aria-label="Next: Philosophy">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Philosophy
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright © 2026 · Apache-2.0 · built in New York
+    </div>
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/cagataycali/doer-cli" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/doer-cli/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": ["cli", "unix", "llm", "pipe", "ollama", "bedrock", "mlx", "multimodal", "lora"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

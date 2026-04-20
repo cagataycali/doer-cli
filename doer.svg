@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="320" height="320">
+  <!-- doer mark: stdin | core | stdout -->
+  <rect width="320" height="320" fill="#0A0A0A"/>
+
+  <!-- left pipe (stdin) -->
+  <rect x="28" y="60" width="24" height="200" fill="#FAFAF7"/>
+
+  <!-- right pipe (stdout) -->
+  <rect x="268" y="60" width="24" height="200" fill="#FAFAF7"/>
+
+  <!-- core block: solid mass, offset by signal -->
+  <rect x="96" y="96" width="128" height="128" fill="#FAFAF7"/>
+
+  <!-- signal-orange slash: stdin → stdout energy line -->
+  <rect x="52" y="148" width="216" height="24" fill="#FF3D00"/>
+
+  <!-- central dot: the brain / LLM -->
+  <circle cx="160" cy="160" r="28" fill="#0A0A0A"/>
+  <circle cx="160" cy="160" r="8" fill="#FF3D00"/>
+</svg>
