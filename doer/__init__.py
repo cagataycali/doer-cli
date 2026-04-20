@@ -269,10 +269,12 @@ def train(iters: int = 200, lr: float = 1e-5, batch_size: int = 1, num_layers: i
                                chat_feature="messages", text_feature=None, mask_prompt=False)
         train_set, valid_set, _ = load_dataset(args, tok)
         model.freeze()
-        linear_to_lora_layers(model, num_layers, {"rank": 8, "dropout": 0.0, "scale": 20.0}, use_dora=False)
+        lora_params = {"rank": 8, "dropout": 0.0, "scale": 20.0, "keys": None}
+        linear_to_lora_layers(model, num_layers, lora_params, use_dora=False)
         print_trainable_parameters(model)
         save_config({"model": model_id, "iters": iters, "lr": lr, "batch_size": batch_size,
-                     "num_layers": num_layers, "fine_tune_type": "lora"},
+                     "num_layers": num_layers, "fine_tune_type": "lora",
+                     "lora_parameters": lora_params},
                     adapter_path / "adapter_config.json")
         targs = TrainingArgs(batch_size=batch_size, iters=iters, val_batches=max(1, n_val),
                              steps_per_report=10, steps_per_eval=max(50, iters//4),
