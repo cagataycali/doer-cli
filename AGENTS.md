@@ -14,6 +14,12 @@
 doer/
 ├── __init__.py    # everything: Agent, shell tool, CLI, prompt
 ├── __main__.py    # python -m doer
+hf_jobs/           # cloud training (burn HF credits, not battery)
+├── train_text_lora.py  # UV script: any causal LM → LoRA → merged push
+├── train_vlm.py        # UV script: Qwen2.5-VL image+text LoRA
+├── train_omni.py       # UV script: Qwen-Omni text+audio+image LoRA
+├── launch.sh           # one-shot dispatcher (text|vlm|omni|ps|logs|hw)
+└── README.md
 SOUL.md            # identity (injected into system prompt if in cwd)
 AGENTS.md          # project rules (injected if in cwd)
 doer.svg           # brand mark
@@ -267,6 +273,69 @@ hf download cagataydev/doer-training --repo-type dataset --local-dir /tmp/doer-d
 cp /tmp/doer-data/data/train.jsonl ~/.doer_training.jsonl
 doer --train 200
 ```
+
+## cloud training via HuggingFace Jobs
+
+For scale-up (bigger models, full fine-tunes, multimodal), doer ships three
+self-contained UV scripts in `hf_jobs/` that run on HF infrastructure:
+
+| script               | target                                      | hardware   | cost  |
+|----------------------|---------------------------------------------|------------|-------|
+| `train_text_lora.py` | Any causal LM (Qwen3-1.7B default)          | t4-medium  | ~$0.30 |
+| `train_vlm.py`       | Qwen2.5-VL-3B (images + text)               | a100-large | ~$5   |
+| `train_omni.py`      | Qwen2.5-Omni-7B (text + audio + image)      | h200       | ~$10  |
+
+One command dispatches a job:
+
+```bash
+./hf_jobs/launch.sh text                     # defaults
+./hf_jobs/launch.sh vlm --min-records 1
+MODEL=Qwen/Qwen3-4B FLAVOR=a10g-large ./hf_jobs/launch.sh text --iters 1000
+./hf_jobs/launch.sh ps
+```
+
+### design rules (same as doer core)
+
+1. **one file per trainer** — no helper modules, no shared utilities. If you
+   want text+VLM you copy-paste the shared bits. Disk is cheap; indirection
+   is not.
+2. **UV inline dependencies** — each script declares its deps in the top
+   `# /// script ... # ///` block. `hf jobs uv run` handles the rest.
+3. **raw JSONL loading** (not `datasets.load_dataset`) — the dataset has
+   heterogeneous schemas (some records have `images`/`audio`/`video` keys,
+   some don't). Arrow schema inference breaks on that. `hf_hub_download`
+   + per-line `json.loads` is robust.
+4. **merge + push full model by default** — output is a drop-in replacement
+   (`transformers.AutoModelForCausalLM.from_pretrained(repo)` just works).
+   LoRA adapters alone force consumers to juggle `peft` glue.
+5. **Strands → OpenAI message translation** happens in the trainer —
+   `toolUse` / `toolResult` blocks become `<tool_call>` / `<tool_result>`
+   tags so the tokenizer's chat template can lay down native tool-call
+   tokens. Training learns real tool-use, not string mimicry.
+6. **no repo setup, no Dockerfile** — everything lives in `hf_jobs/*.py`.
+   `hf jobs uv run --flavor <gpu> --secrets HF_TOKEN hf_jobs/<script>.py …`
+   is the whole deploy story.
+
+### validated run (v0.6.0 release)
+
+- job `69e647b7cd8c002f31e00271` on t4-medium, 33 min, ~$0.35
+- 522 records → 468 train / 53 eval
+- Qwen3-1.7B + LoRA r=16 (17.4M trainable params, 1.00% of base)
+- final eval_loss = **0.149**, mean token accuracy = **97.6%**
+- 3.44 GB merged model auto-pushed to `cagataydev/doer-qwen3-1.7b-test`
+
+### use your cloud-trained model
+
+```bash
+# inference via transformers
+DOER_PROVIDER=transformers \
+  DOER_MODEL=cagataydev/doer-qwen3-17b \
+  do "what is doer"
+
+# or via mlx (after converting: mlx_lm.convert --hf-path <repo>)
+DOER_PROVIDER=mlx DOER_MLX_MODEL=<mlx-repo> do "..."
+```
+
 
 ## do not
 

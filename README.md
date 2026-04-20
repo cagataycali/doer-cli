@@ -187,6 +187,41 @@ DOER_PROVIDER=mlx-vlm DOER_VLM_ADAPTER=~/.doer_vlm_adapter do --img x.png "what'
 
 Training preserves native tool-call tokens via the tokenizer's chat template — your adapter learns **real** tool-use, not string mimicry.
 
+## train in the cloud (HuggingFace Jobs)
+
+Laptop LoRA is great for 500-turn datasets on Qwen3-1.7B. When you want to scale up — bigger models, full fine-tunes, VLM, Omni — burn HF credits instead of your battery.
+
+```bash
+# one-shot dispatchers (UV scripts, zero setup)
+./hf_jobs/launch.sh text                    # Qwen3-1.7B LoRA, T4, ~$0.30
+./hf_jobs/launch.sh vlm                     # Qwen2.5-VL-3B LoRA, A100, ~$5
+./hf_jobs/launch.sh omni                    # Qwen2.5-Omni-7B, H200, ~$10
+
+# override anything via env or flags
+MODEL=Qwen/Qwen3-4B FLAVOR=a10g-large ./hf_jobs/launch.sh text --iters 1000
+
+# monitor
+./hf_jobs/launch.sh ps
+./hf_jobs/launch.sh logs <job_id>
+./hf_jobs/launch.sh hw          # list hardware + cost/hour
+```
+
+Under the hood each dispatcher is one self-contained UV script in `hf_jobs/` — no repo cloning, no Dockerfile. The script pulls `cagataydev/doer-training` (your dataset), runs SFT LoRA with `trl` + `peft`, merges the adapter, and pushes the full merged model to `cagataydev/doer-<model-short>` automatically.
+
+**Validated end-to-end on T4-medium ($0.60/hr):**
+- 522 turns → 468 train / 53 eval
+- Qwen3-1.7B, LoRA r=16 (17.4M params, 1% of base)
+- 50 steps, 33 min → eval_loss **0.149**, token accuracy **97.6%**
+- 3.44 GB merged model auto-pushed to private HF repo
+
+Use the trained model anywhere:
+
+```bash
+DOER_PROVIDER=transformers DOER_MODEL=cagataydev/doer-qwen3-17b do "what is doer"
+```
+
+See [`hf_jobs/README.md`](hf_jobs/README.md) for full details and the three trainers (`train_text_lora.py`, `train_vlm.py`, `train_omni.py`).
+
 ## share the dataset (HuggingFace)
 
 ```bash
