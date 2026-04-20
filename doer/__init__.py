@@ -549,6 +549,48 @@ class _Callable(sys.modules[__name__].__class__):
 sys.modules[__name__].__class__ = _Callable
 
 
+def upload_hf(repo: str = "", private: bool = True):
+    """Upload ~/.doer_training.jsonl to a HuggingFace dataset (private by default)."""
+    try:
+        from huggingface_hub import HfApi, whoami, CommitOperationAdd
+    except ImportError as e:
+        sys.stderr.write("upload requires huggingface_hub: pip install 'doer-cli[hf]'\n  (" + str(e) + ")\n"); return 1
+    if not _TRAIN_JSONL.exists() or _TRAIN_JSONL.stat().st_size == 0:
+        sys.stderr.write("no training data at " + str(_TRAIN_JSONL) + "\n"); return 1
+    import hashlib, tempfile
+    from datetime import datetime
+
+    lines = [l for l in _TRAIN_JSONL.read_text(encoding="utf-8", errors="ignore").splitlines() if l.strip()]
+    n = len(lines); sz_kb = _TRAIN_JSONL.stat().st_size / 1024
+    digest = hashlib.sha256(_TRAIN_JSONL.read_bytes()).hexdigest()
+
+    token = os.environ.get("HF_TOKEN") or None
+    api = HfApi(token=token)
+    user = whoami(token=token).get("name")
+    repo_id = repo or os.environ.get("DOER_HF_REPO") or (user + "/doer-training")
+    sys.stderr.write(str(n) + " turns | " + str(round(sz_kb,1)) + "KB -> " + repo_id + " (" + ("private" if private else "public") + ")\n")
+
+    api.create_repo(repo_id=repo_id, repo_type="dataset", private=private, exist_ok=True)
+    readme = ("---\nlicense: apache-2.0\npretty_name: doer training turns\ntags:\n- agent\n- tool-use\n- strands-agents\n- doer\n---\n\n# doer training data\n\n"
+              "One JSON record per `do \"...\"` call. Schema: `ts, model, query, system, messages, tools` (+ optional `images, audio, video`).\n\n"
+              "## stats\n\n- records: " + str(n) + "\n- size: " + str(round(sz_kb,1)) + " KB\n- sha256: `" + digest + "`\n- last upload: " + datetime.utcnow().isoformat() + "Z\n")
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as f:
+        f.write(readme); readme_path = f.name
+    try:
+        api.create_commit(
+            repo_id=repo_id, repo_type="dataset",
+            operations=[
+                CommitOperationAdd(path_in_repo="data/train.jsonl", path_or_fileobj=str(_TRAIN_JSONL)),
+                CommitOperationAdd(path_in_repo="README.md",        path_or_fileobj=readme_path),
+            ],
+            commit_message="upload " + str(n) + " turns (" + str(round(sz_kb,1)) + "KB, sha256:" + digest[:8] + ")",
+        )
+    finally:
+        Path(readme_path).unlink(missing_ok=True)
+    sys.stderr.write("done: https://huggingface.co/datasets/" + repo_id + "\n")
+    return 0
+
+
 def cli():
     global _PIPED
     _PIPED = True
@@ -562,6 +604,10 @@ def cli():
         iters = 300
         if len(argv) > 1 and argv[1].isdigit(): iters = int(argv[1])
         sys.exit(train_vlm(iters=iters))
+    # --upload-hf [repo]  — upload ~/.doer_training.jsonl to HuggingFace (private dataset)
+    if argv and argv[0] in ("--upload-hf", "--upload-hf-public"):
+        repo = argv[1] if len(argv) > 1 and not argv[1].startswith("-") else ""
+        sys.exit(upload_hf(repo=repo, private=(argv[0] == "--upload-hf")))
     # --train-status  — show dataset size
     if argv and argv[0] == "--train-status":
         import json
@@ -577,8 +623,29 @@ def cli():
             elif r.get("video"): n_vid += 1
             else: n_text += 1
         sz = _TRAIN_JSONL.stat().st_size
-        print(str(n) + " turns | " + str(round(sz/1024,1)) + "KB | " + str(_TRAIN_JSONL), file=sys.stderr)
+        import hashlib
+        local_sha = hashlib.sha256(_TRAIN_JSONL.read_bytes()).hexdigest()
+        print(str(n) + " turns | " + str(round(sz/1024,1)) + "KB | sha256:" + local_sha[:8] + " | " + str(_TRAIN_JSONL), file=sys.stderr)
         print("  text:" + str(n_text) + "  image:" + str(n_img) + "  audio:" + str(n_aud) + "  video:" + str(n_vid), file=sys.stderr)
+        # optional: check HF remote state (only if huggingface_hub installed, quick best-effort)
+        try:
+            from huggingface_hub import HfApi, whoami
+            api = HfApi()
+            repo_id = os.environ.get("DOER_HF_REPO") or (whoami().get("name") + "/doer-training")
+            commits = api.list_repo_commits(repo_id, repo_type="dataset")
+            if commits:
+                latest = commits[0]
+                msg = latest.title if hasattr(latest, "title") else ""
+                import re
+                m = re.search(r"sha256:([0-9a-f]{8})", msg)
+                remote_sha = m.group(1) if m else "?"
+                in_sync = (remote_sha == local_sha[:8])
+                marker = "in sync" if in_sync else "out of sync — run: doer --upload-hf"
+                print("  hf:    " + repo_id + " | " + msg + " | " + marker, file=sys.stderr)
+        except ImportError:
+            pass
+        except Exception as e:
+            print("  hf:    (remote check skipped: " + str(e)[:60] + ")", file=sys.stderr)
         sys.exit(0)
     imgs, auds, vids = [], [], []
     rest = []
@@ -618,6 +685,8 @@ def cli():
         print(f"train:    doer --train [iters]        (text LoRA → ~/.doer_adapter)", file=sys.stderr)
         print(f"          doer --train-vlm [iters]    (VLM LoRA on multi-modal records → ~/.doer_vlm_adapter)", file=sys.stderr)
         print(f"          doer --train-status         (dataset size + text/image/audio/video breakdown)", file=sys.stderr)
+        print(f"upload:   doer --upload-hf [repo]       (private HF dataset, default: <user>/doer-training)", file=sys.stderr)
+        print(f"          doer --upload-hf-public [repo]  (public dataset)", file=sys.stderr)
         sys.exit(1)
     if not q and (imgs or auds or vids):
         q = "describe / analyze the attached media"
