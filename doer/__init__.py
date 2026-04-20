@@ -141,65 +141,116 @@ def _append(q: str, a, agent=None, model_desc: str = ""):
 
 
 
+def _strands_to_openai(messages):
+    """Convert Strands ContentBlock messages to OpenAI chat format.
+
+    Preserves tool_calls as structured data so the tokenizer's chat template
+    emits native tool-call tokens (<tool_call>...</tool_call> on Qwen3, etc.)
+    instead of training the model to output literal '[tool_call: ...]' strings.
+    """
+    import json as _json
+    out = []
+    for m in messages or []:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        if not isinstance(content, list):
+            out.append({"role": role, "content": str(content)})
+            continue
+        # parallel accumulators: text, tool_uses (assistant), tool_results (as separate tool msgs)
+        text_parts, tool_uses, tool_results = [], [], []
+        for c in content:
+            if not isinstance(c, dict): continue
+            if "text" in c:
+                text_parts.append(c["text"])
+            elif "toolUse" in c:
+                tu = c["toolUse"]
+                tool_uses.append({
+                    "id": tu.get("toolUseId", ""),
+                    "type": "function",
+                    "function": {
+                        "name": tu.get("name", "unknown"),
+                        "arguments": _json.dumps(tu.get("input", {}), ensure_ascii=False),
+                    },
+                })
+            elif "toolResult" in c:
+                tr = c["toolResult"]
+                txt_parts = []
+                for rc in tr.get("content", []):
+                    if isinstance(rc, dict) and "text" in rc:
+                        txt_parts.append(rc["text"])
+                tool_results.append({
+                    "role": "tool",
+                    "tool_call_id": tr.get("toolUseId", ""),
+                    "content": "".join(txt_parts),
+                })
+        if role == "assistant":
+            msg = {"role": "assistant", "content": "".join(text_parts)}
+            if tool_uses: msg["tool_calls"] = tool_uses
+            if msg["content"] or tool_uses:
+                out.append(msg)
+        else:  # user role: text + tool_results become separate messages (OpenAI pattern)
+            if text_parts:
+                out.append({"role": "user", "content": "".join(text_parts)})
+            out.extend(tool_results)  # tool messages go AFTER the assistant with tool_calls
+    return out
+
+
 def train(iters: int = 200, lr: float = 1e-5, batch_size: int = 1, num_layers: int = 8,
           adapter_path: str = "", model_id: str = "", val_frac: float = 0.1):
     """In-process LoRA training on ~/.doer_training.jsonl.
 
     Calls mlx_lm.tuner directly — no strands-mlx trainer indirection.
-    Splits JSONL into train/valid, formats each record via the target tokenizer's chat template.
+    Emits OpenAI-format {messages, tools} records; mlx-lm's ChatDataset handles
+    tokenizer chat-template application, preserving native tool-call tokens.
     """
-    import json, random, tempfile, mlx.optimizers as optim, mlx.core as mx
+    import json, random, tempfile
     from types import SimpleNamespace
-    from mlx_lm import load
-    from mlx_lm.tuner.trainer import TrainingArgs, train as _train
-    from mlx_lm.tuner.datasets import CacheDataset, load_dataset
-    from mlx_lm.tuner.utils import linear_to_lora_layers, print_trainable_parameters, build_schedule
-    from mlx_lm.utils import save_config
+    try:
+        import mlx.optimizers as optim
+        from mlx_lm import load
+        from mlx_lm.tuner.trainer import TrainingArgs, train as _train
+        from mlx_lm.tuner.datasets import CacheDataset, load_dataset
+        from mlx_lm.tuner.utils import linear_to_lora_layers, print_trainable_parameters
+        from mlx_lm.utils import save_config
+    except ImportError as e:
+        sys.stderr.write(f"training requires mlx-lm: pip install 'doer-cli[mlx]'\n  ({e})\n"); return 1
     if not _TRAIN_JSONL.exists():
         sys.stderr.write(f"no training data at {_TRAIN_JSONL}\n"); return 1
     model_id = model_id or _MLX_MODEL
-    adapter_path = Path(adapter_path or Path.home() / ".doer_adapter")
+    adapter_path = Path(os.path.expanduser(adapter_path) if adapter_path else Path.home() / ".doer_adapter")
     adapter_path.mkdir(parents=True, exist_ok=True)
     sys.stderr.write(f"doer: loading {model_id}\n")
     model, tok = load(model_id, tokenizer_config={"trust_remote_code": True})
-    # read dense records → format via tokenizer chat template → write train/valid .jsonl
     records = [json.loads(ln) for ln in _TRAIN_JSONL.read_text().splitlines() if ln.strip()]
+    # skip records with empty agent.messages (LLM failed before appending anything)
+    records = [r for r in records if r.get("messages")]
     if len(records) < 2:
-        sys.stderr.write(f"need >=2 records, have {len(records)}\n"); return 1
-    def _to_chat(rec):
-        out = [{"role": "system", "content": rec.get("system", "")}]
-        for m in rec.get("messages", []):
-            role = m.get("role", "user"); content = m.get("content", "")
-            if isinstance(content, list):
-                parts = []
-                for c in content:
-                    if isinstance(c, dict):
-                        if "text" in c: parts.append(c["text"])
-                        elif "toolUse" in c:
-                            tu = c["toolUse"]
-                            parts.append(f"[tool_call: {tu.get('name','?')}({json.dumps(tu.get('input',{}),ensure_ascii=False)})]")
-                        elif "toolResult" in c:
-                            tr = c["toolResult"]
-                            txt = " ".join(x.get("text","") for x in tr.get("content",[]) if isinstance(x,dict))
-                            parts.append(f"[tool_result: {txt}]")
-                content = "".join(parts)
-            out.append({"role": role, "content": str(content)})
-        try:
-            return {"text": tok.apply_chat_template(out, tokenize=False, add_generation_prompt=False)}
-        except Exception:
-            return {"text": "\n".join(f"{m['role']}: {m['content']}" for m in out)}
+        sys.stderr.write(f"need >=2 usable records, have {len(records)}\n"); return 1
+    def _rec_to_chat(rec):
+        """Dense strands record → mlx-lm ChatDataset {messages, tools} entry."""
+        msgs = [{"role": "system", "content": rec.get("system", "")}] if rec.get("system") else []
+        msgs.extend(_strands_to_openai(rec.get("messages", [])))
+        tools = rec.get("tools", []) or None
+        entry = {"messages": msgs}
+        if tools:
+            # convert doer tool spec {name, description, input_schema} → OpenAI function spec
+            entry["tools"] = [{"type": "function", "function": {
+                "name": t["name"], "description": t.get("description", ""),
+                "parameters": t.get("input_schema", {})
+            }} for t in tools]
+        return entry
     random.seed(0); random.shuffle(records)
     n_val = max(1, int(len(records) * val_frac))
-    train_recs = [_to_chat(r) for r in records[n_val:]]
-    valid_recs = [_to_chat(r) for r in records[:n_val]]
+    train_recs = [_rec_to_chat(r) for r in records[n_val:]]
+    valid_recs = [_rec_to_chat(r) for r in records[:n_val]]
     sys.stderr.write(f"doer: {len(train_recs)} train / {len(valid_recs)} valid\n")
     with tempfile.TemporaryDirectory() as d:
         dp = Path(d)
-        (dp / "train.jsonl").write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in train_recs))
-        (dp / "valid.jsonl").write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in valid_recs))
+        for name, recs in (("train", train_recs), ("valid", valid_recs)):
+            (dp / f"{name}.jsonl").write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in recs))
         args = SimpleNamespace(data=str(dp), hf_dataset=None, train=True, test=False,
-                               prompt_feature=None, completion_feature=None, chat_feature=None,
-                               text_feature="text", mask_prompt=False)
+                               prompt_feature=None, completion_feature=None,
+                               chat_feature="messages", text_feature=None, mask_prompt=False)
         train_set, valid_set, _ = load_dataset(args, tok)
         model.freeze()
         linear_to_lora_layers(model, num_layers, {"rank": 8, "dropout": 0.0, "scale": 20.0}, use_dora=False)
@@ -272,8 +323,11 @@ def _model():
         return BedrockModel(region_name=_BEDROCK_REGION, **cfg), f"bedrock {_BEDROCK_MODEL} @ {_BEDROCK_REGION}"
     if p == "mlx":
         # optional extra: pip install doer-cli[mlx] — pulls strands-mlx + mlx-lm
-        from strands_mlx import MLXModel
-        adapter = _ADAPTER or None
+        try:
+            from strands_mlx import MLXModel
+        except ImportError:
+            sys.stderr.write("mlx provider requires: pip install 'doer-cli[mlx]'\n"); sys.exit(1)
+        adapter = os.path.expanduser(_ADAPTER) if _ADAPTER else None
         m = MLXModel(model_id=_MLX_MODEL, adapter_path=adapter)
         tag = f"mlx {_MLX_MODEL}" + (f" +adapter:{adapter}" if adapter else "")
         return m, tag
@@ -295,6 +349,7 @@ def _prompt(model_desc: str) -> str:
 
 
 def _agent():
+    """Build a fresh agent. Returns (agent, model_desc) to avoid double _model() cost."""
     m, desc = _model()
     kw = dict(
         model=m,
@@ -304,13 +359,12 @@ def _agent():
         conversation_manager=NullConversationManager(),
     )
     if _PIPED: kw["callback_handler"] = null_callback_handler
-    return Agent(**kw)
+    return Agent(**kw), desc
 
 
 def ask(q):
     """doer('query')"""
-    _, desc = _model()
-    a = _agent()
+    a, desc = _agent()
     r = a(q)
     _append(q, r, agent=a, model_desc=desc)
     return r
@@ -326,7 +380,7 @@ def cli():
     _PIPED = True
     argv = sys.argv[1:]
     # --train [iters]  — in-process LoRA on ~/.doer_training.jsonl
-    if argv and argv[0] in ("--train", "-t"):
+    if argv and argv[0] == "--train":
         iters = 200
         if len(argv) > 1 and argv[1].isdigit(): iters = int(argv[1])
         sys.exit(train(iters=iters))
