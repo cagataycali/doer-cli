@@ -18,7 +18,11 @@ _N_SHELL = int(os.environ.get("DOER_SHELL_HISTORY", "20"))  # bash+zsh commands
 _MLX_MODEL = os.environ.get("DOER_MLX_MODEL", "mlx-community/Qwen3-1.7B-4bit")
 _ADAPTER = os.environ.get("DOER_ADAPTER", "")
 _TRAIN_JSONL = Path.home() / ".doer_training.jsonl"
+# MLX VLM models per capability. User can override via DOER_MLX_VLM_MODEL.
+# Defaults chosen for speed on M1/M2 — upgrade to Qwen3-Omni-30B-A3B-4bit for audio+video.
 _MLX_VLM_MODEL = os.environ.get("DOER_MLX_VLM_MODEL", "mlx-community/Qwen2.5-VL-3B-Instruct-4bit")
+_MLX_AUDIO_MODEL = os.environ.get("DOER_MLX_AUDIO_MODEL", "mlx-community/gemma-3n-E2B-it-4bit")  # 2B, vision+audio+video
+_MLX_OMNI_MODEL = os.environ.get("DOER_MLX_OMNI_MODEL", "mlx-community/Qwen3-Omni-30B-A3B-Instruct-4bit")
 _VLM_ADAPTER = os.environ.get("DOER_VLM_ADAPTER", "")
 _ATTACH = {"images": [], "audio": [], "video": []}  # per-call multimodal attachments
 
@@ -410,12 +414,29 @@ def _model():
         except ImportError:
             sys.stderr.write("mlx-vlm provider requires: pip install 'doer-cli[mlx]'" + chr(10)); sys.exit(1)
         adapter = os.path.expanduser(_VLM_ADAPTER) if _VLM_ADAPTER else None
-        m = MLXVisionModel(model_id=_MLX_VLM_MODEL, adapter_path=adapter)
-        tag = "mlx-vlm " + _MLX_VLM_MODEL + ((" +adapter:" + adapter) if adapter else "")
+        # pick best model for the attachment mix (unless user forced DOER_MLX_VLM_MODEL)
+        has_img = bool(_ATTACH["images"])
+        has_aud = bool(_ATTACH["audio"])
+        has_vid = bool(_ATTACH["video"])
+        if "DOER_MLX_VLM_MODEL" in os.environ:
+            chosen = _MLX_VLM_MODEL
+        elif has_aud and (has_img or has_vid):
+            chosen = _MLX_OMNI_MODEL  # needs full omni
+        elif has_aud:
+            chosen = _MLX_AUDIO_MODEL
+        else:
+            chosen = _MLX_VLM_MODEL  # image and/or video
+        m = MLXVisionModel(model_id=chosen, adapter_path=adapter)
+        tag = "mlx-vlm " + chosen + ((" +adapter:" + adapter) if adapter else "")
         return m, tag
         # default: ollama
     from strands.models.ollama import OllamaModel
     return OllamaModel(host=_OLLAMA_HOST, model_id=_OLLAMA_MODEL, keep_alive="5m"), f"ollama {_OLLAMA_MODEL} @ {_OLLAMA_HOST}"
+
+
+def _compact_prompt_for_vlm(full_prompt):
+    """VLMs perform best with no system prompt. Return empty string."""
+    return ""
 
 
 def _prompt(model_desc: str) -> str:
@@ -436,10 +457,15 @@ def _prompt(model_desc: str) -> str:
 def _agent():
     """Build a fresh agent. Returns (agent, model_desc) to avoid double _model() cost."""
     m, desc = _model()
+    sp = _prompt(desc)
+    # VLM calls: compact prompt + drop shell tool (VLMs have limited tool support + small windows)
+    use_tools = not any(_ATTACH.values())
+    if not use_tools:
+        sp = _compact_prompt_for_vlm(sp)
     kw = dict(
         model=m,
-        tools=[shell],
-        system_prompt=_prompt(desc),
+        tools=[shell] if use_tools else [],
+        system_prompt=sp,
         load_tools_from_directory=True,
         conversation_manager=NullConversationManager(),
     )
@@ -448,25 +474,53 @@ def _agent():
 
 
 def _build_content(q):
-    """Build Strands ContentBlock list: text + image blocks + audio/video markers."""
+    """Build Strands ContentBlock list for MLXVisionModel.
+
+    Images: native Strands image content block (works everywhere)
+    Audio/video: <audio>PATH</audio> / <video>PATH</video> tags embedded in text,
+                 which MLXVisionModel._extract_media_from_messages() parses via regex.
+    Text query stays first so prompt context comes before media.
+    """
     import mimetypes
-    content = [{"text": q}]
+    # gather valid paths first
+    valid_imgs, valid_aud, valid_vid = [], [], []
     for img_path in _ATTACH["images"]:
         p = Path(img_path).expanduser().resolve()
-        if not p.exists():
-            sys.stderr.write("(doer: missing image: " + str(p) + ")" + chr(10)); continue
+        if p.exists():
+            valid_imgs.append(p)
+        else:
+            sys.stderr.write("(doer: missing image: " + str(p) + ")" + chr(10))
+    for ap in _ATTACH["audio"]:
+        p = Path(ap).expanduser().resolve()
+        if p.exists():
+            valid_aud.append(p)
+        else:
+            sys.stderr.write("(doer: missing audio: " + str(p) + ")" + chr(10))
+    for vp in _ATTACH["video"]:
+        p = Path(vp).expanduser().resolve()
+        if p.exists():
+            valid_vid.append(p)
+        else:
+            sys.stderr.write("(doer: missing video: " + str(p) + ")" + chr(10))
+
+    # build text: query + <audio>/<video> tags for MLXVisionModel regex parser
+    text = q
+    for ap in valid_aud:
+        text += " <audio>" + str(ap) + "</audio>"
+    for vp in valid_vid:
+        text += " <video>" + str(vp) + "</video>"
+
+    content = [{"text": text}]
+
+    # images as native content blocks (bytes + format)
+    for p in valid_imgs:
         try:
             mime, _ = mimetypes.guess_type(str(p))
             fmt = (mime or "image/png").split("/")[-1]
+            if fmt == "jpg": fmt = "jpeg"  # normalize
             content.append({"image": {"format": fmt, "source": {"bytes": p.read_bytes()}}})
         except Exception as e:
             sys.stderr.write("(doer: image load err " + str(p) + ": " + str(e) + ")" + chr(10))
-    for kind in ("audio", "video"):
-        for ap in _ATTACH[kind]:
-            p = Path(ap).expanduser().resolve()
-            if not p.exists():
-                sys.stderr.write("(doer: missing " + kind + ": " + str(p) + ")" + chr(10)); continue
-            content.append({"text": "[" + kind.upper() + "_FILE: " + str(p) + "]"})
     return content
 
 
@@ -478,7 +532,8 @@ def ask(q, images=None, audio=None, video=None):
     try:
         a, desc = _agent()
         content = _build_content(q)
-        if len(content) > 1:
+        # any attachment → send content list (image block AND/OR audio/video tags in text)
+        if any(_ATTACH.values()):
             r = a(content)  # Strands accepts list[ContentBlock] directly
         else:
             r = a(q)
@@ -543,7 +598,12 @@ def cli():
     q = "\n\n".join(x for x in [args, stdin] if x)
     if not q and not (imgs or auds or vids):
         _, desc = _model()
-        print("usage: doer <query>   |   echo data | doer <query>", file=sys.stderr)
+        print("usage: doer <query>                          # text", file=sys.stderr)
+        print("       echo data | doer <query>              # piped stdin", file=sys.stderr)
+        print("       doer --img X.png <query>              # vision (auto-switches to mlx-vlm)", file=sys.stderr)
+        print("       doer --audio X.wav <query>            # audio", file=sys.stderr)
+        print("       doer --video X.mp4 <query>            # video frames", file=sys.stderr)
+        print("       doer --img a.png --audio b.wav <q>    # omni (auto-picks omni model)", file=sys.stderr)
         print(f"model:    {desc}", file=sys.stderr)
         print(f"history:  {_N_DOER} Q/A pairs from {_HIST}", file=sys.stderr)
         print(f"shell:    {_N_SHELL} cmds from ~/.bash_history + ~/.zsh_history", file=sys.stderr)
@@ -554,9 +614,10 @@ def cli():
         print(f"          DOER_BEDROCK_GUARDRAIL_ID, DOER_BEDROCK_GUARDRAIL_VERSION,", file=sys.stderr)
         print(f"          DOER_ANTHROPIC_BETA (comma-sep), DOER_ADDITIONAL_REQUEST_FIELDS (JSON),", file=sys.stderr)
         print(f"          DOER_HISTORY, DOER_SHELL_HISTORY,", file=sys.stderr)
-        print(f"          DOER_MLX_MODEL, DOER_ADAPTER  (mlx provider — Apple Silicon)", file=sys.stderr)
-        print(f"train:    do --train [iters]   (LoRA on ~/.doer_training.jsonl → ~/.doer_adapter)", file=sys.stderr)
-        print(f"          do --train-status    (show dataset size)", file=sys.stderr)
+        print(f"          DOER_MLX_MODEL, DOER_ADAPTER,  DOER_MLX_VLM_MODEL, DOER_MLX_AUDIO_MODEL, DOER_MLX_OMNI_MODEL, DOER_VLM_ADAPTER", file=sys.stderr)
+        print(f"train:    doer --train [iters]        (text LoRA → ~/.doer_adapter)", file=sys.stderr)
+        print(f"          doer --train-vlm [iters]    (VLM LoRA on multi-modal records → ~/.doer_vlm_adapter)", file=sys.stderr)
+        print(f"          doer --train-status         (dataset size + text/image/audio/video breakdown)", file=sys.stderr)
         sys.exit(1)
     if not q and (imgs or auds or vids):
         q = "describe / analyze the attached media"
