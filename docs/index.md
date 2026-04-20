@@ -80,7 +80,7 @@ Not a chatbot. Not a wrapper. **`grep` with a brain.**
 
 -   :material-feather: __Small is kind__
 
-    **164 lines** of Python. One dep. Auditable in a lunch break.
+    **~420 lines** of Python. One dep. Auditable in a lunch break. Includes its own LoRA training loop.
 
 -   :material-magnify: __Transparent__
 

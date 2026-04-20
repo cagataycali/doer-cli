@@ -52,7 +52,7 @@ No config file. Every knob is an env var. Put them in your `.zshrc`/`.bashrc` or
 
 | var                    | default                                      | purpose                             |
 | ---------------------- | -------------------------------------------- | ----------------------------------- |
-| `DOER_PROVIDER`        | *(auto: bedrock if AWS creds, else ollama)*  | `bedrock` \| `ollama`               |
+| `DOER_PROVIDER`        | *(auto: bedrock → mlx → ollama)*             | `bedrock` \| `mlx` \| `ollama`      |
 | `DOER_HISTORY`         | `10`                                         | Q/A pairs injected into prompt      |
 | `DOER_SHELL_HISTORY`   | `20`                                         | shell history lines in prompt       |
 | **Bedrock**            |                                              |                                     |
@@ -67,6 +67,9 @@ No config file. Every knob is an env var. Put them in your `.zshrc`/`.bashrc` or
 | **Ollama**             |                                              |                                     |
 | `DOER_MODEL`           | `qwen3:1.7b`                                 | any model Ollama can run            |
 | `OLLAMA_HOST`          | `http://localhost:11434`                     | point at a remote Ollama            |
+| **MLX** *(Apple Silicon, opt-in)* |                                    |                                     |
+| `DOER_MLX_MODEL`       | `mlx-community/Qwen3-1.7B-4bit`              | base MLX model                      |
+| `DOER_ADAPTER`         | *(unset)*                                    | path to LoRA adapter (hot-swap)     |
 
 ```bash
 # default: Claude Opus 4.7 on Bedrock (1M context, 128k output)
@@ -81,6 +84,9 @@ DOER_BEDROCK_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0 do "summarize"
 # disable the 1M context beta (saves a header, ≤200k ctx)
 DOER_ANTHROPIC_BETA="" do "short one"
 
+# MLX with your trained adapter (see: Train on yourself)
+DOER_PROVIDER=mlx DOER_ADAPTER=~/.doer_adapter do "terse answer"
+
 # remote ollama (on your beefy box)
 OLLAMA_HOST=http://gpu-box:11434 DOER_PROVIDER=ollama do "explain this codebase"
 ```
@@ -89,6 +95,17 @@ OLLAMA_HOST=http://gpu-box:11434 DOER_PROVIDER=ollama do "explain this codebase"
     - `temperature` / `top_p` **are not sent by default** — Opus 4.7 returns 400 on any non-default value.
     - `output-300k-2026-03-24` (seen in SDKs) is **not yet accepted by Bedrock**. Opus 4.7's real cap is **128k** — `doer` defaults to that.
     - Both issues go away for older models (Sonnet 4, Opus 4.6) — just pin `DOER_BEDROCK_MODEL`.
+
+## train on yourself
+
+```bash
+do --train-status       # show corpus size + path
+do --train              # 200 LoRA iters on ~/.doer_training.jsonl (needs `[mlx]`)
+do --train 500          # 500 iters
+```
+
+Every `do "..."` call appends a full training record automatically.
+See [**Train on yourself →**](train.md) for the collect → train → hot-swap loop.
 
 ## when to use which binary
 

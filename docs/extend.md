@@ -175,3 +175,11 @@ project/
 ---
 
 > **`do` is small so you can grow it.**
+
+---
+
+## tools in the training corpus
+
+Every `@tool` you drop into `./tools/` is captured in `~/.doer_training.jsonl` alongside its `input_schema`. When you run `do --train`, the LoRA adapter learns **your** tool surface — not a generic one.
+
+Drop a tool, use it 20 times, train for 200 iters → a small MLX model that knows *your* weather tool, *your* db schema, *your* shell idioms. See [**Train on yourself**](train.md).

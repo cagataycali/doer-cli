@@ -90,5 +90,6 @@ nav:
   - Cookbook: cookbook.md
   - Context: context.md
   - Extend: extend.md
+  - Train: train.md
   - Philosophy: philosophy.md
   - Changelog: changelog.md

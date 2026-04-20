@@ -65,7 +65,7 @@ Agent(
 )(stdin + argv)
 ```
 
-That's the entire architecture. **164 lines** of Python. It reads your shell like a person reads a room.
+That's the entire architecture. **~420 lines** of Python. It reads your shell like a person reads a room — and can train on its own transcripts.
 
 ## context it sees every call
 
@@ -132,6 +132,31 @@ def weather(city: str) -> str:
 
 Next call: `do "istanbul weather?"` — hot-reloaded, no restart.
 
+## train on yourself (Apple Silicon)
+
+`doer` closes its own loop. Every call appends a **dense, self-contained training record** to `~/.doer_training.jsonl` — full system prompt, all messages, tool specs, native tool-call tokens preserved.
+
+```bash
+# 1. collect (automatic — just use doer)
+do "fix this stacktrace" < err.log
+do "write a sql query that ..."
+# ... 100+ real turns
+
+# 2. inspect
+do --train-status
+# → 127 turns | 2453.1KB | /Users/you/.doer_training.jsonl
+
+# 3. train — in-process LoRA (no strands-mlx trainer indirection)
+pip install 'doer-cli[mlx]'
+do --train 200                # 200 iters, LoRA rank 8, AdamW, lr 1e-5
+# → ~/.doer_adapter/adapters.safetensors
+
+# 4. use your trained self
+DOER_PROVIDER=mlx DOER_ADAPTER=~/.doer_adapter do "fix this stacktrace" < err.log
+```
+
+Training calls `mlx_lm.tuner` directly. ~50 lines. Preserves native `<tool_call>` tokens via the tokenizer's chat template — your adapter learns **real** tool-use, not string mimicry. Opt-in extra (`doer-cli[mlx]`) pulls `strands-mlx` + `mlx-lm`; default install stays lean.
+
 ## philosophy
 
 ```
@@ -148,7 +173,7 @@ Read [**SOUL.md**](SOUL.md) for the manifesto. Read [**AGENTS.md**](AGENTS.md) f
 
 | project    | size       | purpose                           |
 | ---------- | ---------- | --------------------------------- |
-| **doer**   | 164 LOC    | one pipe, one shell, one file     |
+| **doer**   | ~420 LOC   | one pipe, one shell, one file, one loop (collect→train→swap) |
 | [**DevDuck**](https://github.com/cagataycali/devduck) | 60+ tools  | every protocol, every edge |
 
 ## uninstall
