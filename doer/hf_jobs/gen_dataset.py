@@ -130,12 +130,15 @@ def make_agent_factory(model_id: str, provider: str):
 
     # Quiet doer; we're doing bulk gen, don't want its stdout noise mid-run
     os.environ["DOER_QUIET"] = "1"
+    # Disable hot-reload file watcher (not thread-safe, and unused in bulk gen)
+    # User can override with DOER_LOAD_TOOLS_FROM_DIR=1 if they really want it.
+    os.environ.setdefault("DOER_LOAD_TOOLS_FROM_DIR", "0")
 
     import doer, threading
     _lock = threading.Lock()
     def factory():
-        # Strands' file watchers aren't thread-safe at construction time.
-        # Serialize Agent instantiation; the agent() call itself is fine in parallel.
+        # Defense-in-depth: even with watchers off, serialize Agent() ctor.
+        # The agent(query) call itself runs in parallel threads just fine.
         with _lock:
             return doer._agent()
     return factory

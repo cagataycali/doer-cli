@@ -53,6 +53,7 @@ VLM_ADAPTER    = ENV("DOER_VLM_ADAPTER")
 N_DOER         = int(ENV("DOER_HISTORY", "10"))
 N_SHELL        = int(ENV("DOER_SHELL_HISTORY", "20"))
 DEBUG          = bool(ENV("DOER_DEBUG"))
+LOAD_TOOLS_DIR = ENV("DOER_LOAD_TOOLS_FROM_DIR", "1").lower() not in ("0", "false", "no", "off", "")
 
 # per-call attachment buffer (reset after each ask)
 _ATTACH: dict[str, list[str]] = {"images": [], "audio": [], "video": []}
@@ -360,7 +361,7 @@ def _agent() -> tuple[Agent, str]:
         "model": m,
         "tools": [shell] if use_tools else [],
         "system_prompt": _build_prompt(desc) if use_tools else _compact_for_vlm(),
-        "load_tools_from_directory": True,
+        "load_tools_from_directory": LOAD_TOOLS_DIR,
         "conversation_manager": NullConversationManager(),
     }
     if PIPED: kwargs["callback_handler"] = null_callback_handler

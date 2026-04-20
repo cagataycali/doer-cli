@@ -1,5 +1,18 @@
 # changelog
 
+## v0.7.1 — 2026-04-20
+
+### New env knob: `DOER_LOAD_TOOLS_FROM_DIR`
+- **Controls** whether `Agent(load_tools_from_directory=...)` is `True` (default, hot-reload `./tools/*.py`) or `False`.
+- **Fixes** threading race in `hf_jobs/gen_dataset.py` — Strands' hot-reload watcher isn't thread-safe at construction.
+- **Default preserves** old behaviour — `1` (on) unless explicitly unset/false.
+- **Accepted falsy**: `0`, `false`, `no`, `off`, `""` (case-insensitive). Everything else is true.
+- **Use case 1**: bulk/concurrent training-script runs — `DOER_LOAD_TOOLS_FROM_DIR=0 doer ...`
+- **Use case 2**: tiny HF job containers where `./tools/` doesn't exist and file watching costs RAM.
+- **Use case 3**: ephemeral/sandboxed agents that should not auto-load user tools.
+
+`gen_dataset.py` now sets `DOER_LOAD_TOOLS_FROM_DIR=0` by default so dataset generation is thread-safe out of the box.
+
 ## v0.7.0 — 2026-04-20
 
 ### Cloud dataset generation (HF Jobs)

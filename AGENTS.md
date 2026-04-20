@@ -84,6 +84,7 @@ Built fresh on every call by `_build_prompt()`:
 | `DOER_MLX_OMNI_MODEL`             | `mlx-community/Qwen3-Omni-30B-A3B-Instruct-4bit`  | omni (img+audio mix)          |
 | `DOER_VLM_ADAPTER`                | *(unset)*                                         | VLM LoRA adapter path         |
 | `DOER_DEBUG`                     | *(unset)*                                         | print training-log errors     |
+| `DOER_LOAD_TOOLS_FROM_DIR`       | `1` (on)                                          | hot-reload `./tools/*.py` (disable for threading: `0`) |
 | `DOER_HF_REPO`                   | `<hf-user>/doer-training`                         | target HF dataset for upload  |
 | `HF_TOKEN`                       | *(fallback: `~/.cache/huggingface/token`)*        | HuggingFace auth token        |
 
