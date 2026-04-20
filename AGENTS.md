@@ -281,6 +281,7 @@ self-contained UV scripts in `hf_jobs/` that run on HF infrastructure:
 
 | script               | target                                      | hardware   | cost  |
 |----------------------|---------------------------------------------|------------|-------|
+| `gen_dataset.py`     | **Generate** records via doer runs + append | cpu-basic  | ~$0.60 |
 | `train_text_lora.py` | Any causal LM (Qwen3-1.7B default)          | t4-medium  | ~$0.30 |
 | `train_vlm.py`       | Qwen2.5-VL-3B (images + text)               | a100-large | ~$5   |
 | `train_omni.py`      | Qwen2.5-Omni-7B (text + audio + image)      | h200       | ~$10  |
@@ -288,11 +289,32 @@ self-contained UV scripts in `hf_jobs/` that run on HF infrastructure:
 One command dispatches a job:
 
 ```bash
+./hf_jobs/launch.sh gen                      # generate from prompts.example.txt (default)
+./hf_jobs/launch.sh gen my_prompts.txt       # custom prompts
+./hf_jobs/launch.sh gen hf://user/ds:col     # from HF dataset column
 ./hf_jobs/launch.sh text                     # defaults
 ./hf_jobs/launch.sh vlm --min-records 1
 MODEL=Qwen/Qwen3-4B FLAVOR=a10g-large ./hf_jobs/launch.sh text --iters 1000
 ./hf_jobs/launch.sh ps
 ```
+
+### full loop: generate → train → deploy
+
+```bash
+# 1. generate 500 records on HF CPU (~$0.60, ~2 min with concurrency=8)
+./hf_jobs/launch.sh gen prompts.txt --iters 500
+
+# 2. train LoRA on the fresh records (~$0.30, T4-medium, 33 min)
+./hf_jobs/launch.sh text
+
+# 3. use the merged model anywhere
+DOER_PROVIDER=transformers DOER_MODEL=cagataydev/doer-qwen3-17b do "fix this"
+```
+
+**Dedupe is automatic** — `gen_dataset.py` sha256-hashes each prompt, skips
+anything already in the target dataset. Rerun safely to top up. Every
+generated record carries `generated_by = "doer --hf-jobs gen @ <job_id>"`
+so you can filter synthetic vs human records later.
 
 ### design rules (same as doer core)
 

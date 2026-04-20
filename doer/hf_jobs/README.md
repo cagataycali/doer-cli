@@ -13,6 +13,7 @@ Train **doer** models on HF infrastructure using the `cagataydev/doer-training` 
 
 | Script                | What                                    | GPU        | Cost (500-turn run) |
 |-----------------------|-----------------------------------------|------------|---------------------|
+| `gen_dataset.py`      | **Dataset generation** via doer runs    | cpu-basic  | ~$0.05 (500 prompts) |
 | `train_text_lora.py`  | Text SFT LoRA (Qwen3-1.7B default)      | t4-medium  | ~$0.30 (30 min)     |
 | `train_vlm.py`        | VLM LoRA (Qwen2.5-VL-3B, image+text)    | a100-large | ~$5 (2 h)           |
 | `train_omni.py`       | Omni LoRA (text+audio+image, Qwen-7B)   | h200       | ~$10 (2 h)          |
@@ -40,6 +41,69 @@ ITERS=2000 ./launch.sh text
 hf jobs uv run --flavor t4-medium --secrets HF_TOKEN train_text_lora.py \
   --model Qwen/Qwen3-1.7B --iters 500
 ```
+
+## dataset generation (new in v0.7.0)
+
+The full loop is now cloud-native: **generate → train → deploy**. Burn HF credits instead of your laptop.
+
+```bash
+# default: 59 example prompts × Bedrock Opus 4.7, append to cagataydev/doer-training
+./launch.sh gen
+
+# your own prompts (one per line, blank/# ignored)
+./launch.sh gen my_prompts.txt --iters 500
+
+# from an existing HF dataset (column auto-detected, default "prompt")
+./launch.sh gen hf://Anthropic/hh-rlhf:chosen --iters 1000
+
+# use a different provider / model
+PROVIDER=ollama MODEL=qwen3:1.7b ./launch.sh gen prompts.txt
+PROVIDER=anthropic ./launch.sh gen prompts.txt   # needs ANTHROPIC_API_KEY secret
+
+# crank concurrency (Bedrock handles 8-16 easily)
+CONCURRENCY=16 ./launch.sh gen prompts.txt --iters 1000
+```
+
+### how it works
+
+1. **Pulls your prompts** from file / HF dataset / stdin
+2. **Pulls existing dataset** and computes sha256 of every existing `query` → dedupe set
+3. Spawns a `ThreadPoolExecutor`, runs doer concurrently (each prompt → fresh `Agent` → full turn)
+4. Captures each turn as a dense record (same schema as local `_log_turn()`): `{ts, model, query, system, messages, tools, generated_by}`
+5. **Appends** to `cagataydev/doer-training` (creates if missing), updates README with fresh stats
+6. Idempotent — rerun same prompts, nothing happens
+
+### secrets
+
+| Secret                       | Required when                        |
+|------------------------------|--------------------------------------|
+| `HF_TOKEN`                   | always (dataset push + dedupe read)  |
+| `AWS_BEARER_TOKEN_BEDROCK`   | `PROVIDER=bedrock` (default)         |
+| `ANTHROPIC_API_KEY`          | `PROVIDER=anthropic`                 |
+| `OPENAI_API_KEY`             | `PROVIDER=openai`                    |
+
+Launcher auto-wires the right secret based on `PROVIDER`.
+
+### provenance
+
+Every generated record carries `"generated_by": "doer --hf-jobs gen @ <job_id>"` so you can
+filter synthetic vs. human records later:
+
+```python
+from datasets import load_dataset
+ds = load_dataset("cagataydev/doer-training", split="train")
+human = ds.filter(lambda r: "generated_by" not in r or not r["generated_by"])
+synth = ds.filter(lambda r: r.get("generated_by", "").startswith("doer --hf-jobs gen"))
+print(len(human), "human;", len(synth), "synthetic")
+```
+
+### cost math (Bedrock Opus 4.7 defaults)
+
+- **HF compute**: `cpu-basic` = $0.01/hr. 500 prompts at ~0.5/sec with concurrency=8 → ~2min → **$0.0003**
+- **Bedrock inference**: ~$15/1M input tokens × ~80K tokens/turn × 500 prompts = ~$0.60
+- **Total**: **~$0.60 per 500-record dataset** (~$1.20/1K, ~$6/5K)
+
+Switch to `PROVIDER=ollama` for zero inference cost but much slower (needs model pre-loaded on job).
 
 ## validated (v0.6.0)
 

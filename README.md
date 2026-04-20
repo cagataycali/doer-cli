@@ -193,12 +193,18 @@ Laptop LoRA is great for 500-turn datasets on Qwen3-1.7B. When you want to scale
 
 ```bash
 # one-shot dispatchers (UV scripts, zero setup)
+doer --hf-jobs gen                     # Generate dataset (CPU, ~$0.60/500 prompts)
 doer --hf-jobs text                    # Qwen3-1.7B LoRA, T4, ~$0.30
 doer --hf-jobs vlm                     # Qwen2.5-VL-3B LoRA, A100, ~$5
 doer --hf-jobs omni                    # Qwen2.5-Omni-7B, H200, ~$10
 
+# generate dataset from your own prompts (one per line, dedupes against existing)
+doer --hf-jobs gen my_prompts.txt --iters 500
+doer --hf-jobs gen hf://Anthropic/hh-rlhf:chosen --iters 1000
+
 # override anything via env or flags
 MODEL=Qwen/Qwen3-4B FLAVOR=a10g-large doer --hf-jobs text --iters 1000
+PROVIDER=ollama CONCURRENCY=16 doer --hf-jobs gen prompts.txt
 
 # monitor
 doer --hf-jobs ps
@@ -220,7 +226,7 @@ Use the trained model anywhere:
 DOER_PROVIDER=transformers DOER_MODEL=cagataydev/doer-qwen3-17b do "what is doer"
 ```
 
-See the bundled [`hf_jobs/README.md`](doer/hf_jobs/README.md) (also accessible at `$(doer --hf-jobs)/README.md` after install) for full details and the three trainers (`train_text_lora.py`, `train_vlm.py`, `train_omni.py`).
+See the bundled [`hf_jobs/README.md`](doer/hf_jobs/README.md) (also accessible at `$(doer --hf-jobs)/README.md` after install) for full details, the generator (`gen_dataset.py`), and the three trainers (`train_text_lora.py`, `train_vlm.py`, `train_omni.py`).
 
 ## share the dataset (HuggingFace)
 

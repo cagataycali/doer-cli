@@ -161,9 +161,14 @@ Laptop LoRA caps out at ~1.7B models on Apple Silicon. For anything bigger — f
 
 ```bash
 # one-shot dispatchers (reads from cagataydev/doer-training, pushes merged model)
+doer --hf-jobs gen                     # Generate records (CPU, ~$0.60/500 prompts)
 doer --hf-jobs text                    # Qwen3-1.7B LoRA, T4, ~$0.30
 doer --hf-jobs vlm                     # Qwen2.5-VL-3B image+text, A100, ~$5
 doer --hf-jobs omni                    # Qwen2.5-Omni-7B, H200, ~$10
+
+# generate your own records from a prompts file or HF dataset
+doer --hf-jobs gen my_prompts.txt --iters 500
+doer --hf-jobs gen hf://Anthropic/hh-rlhf:chosen --iters 1000
 
 # override anything via env or pass-through flags
 MODEL=Qwen/Qwen3-4B FLAVOR=a10g-large doer --hf-jobs text --iters 1000

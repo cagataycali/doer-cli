@@ -1,5 +1,25 @@
 # changelog
 
+## v0.7.0 — 2026-04-20
+
+### Cloud dataset generation (HF Jobs)
+- **New**: `doer --hf-jobs gen` — generate dense training records on HF infrastructure, auto-append to `cagataydev/doer-training`
+- **New**: `doer/hf_jobs/gen_dataset.py` — single UV script, ~290 lines, thread-safe, dedupe-by-sha256
+- **New**: `doer/hf_jobs/prompts.example.txt` — 59 seed prompts covering pipe/shell/coding/self-awareness/agentic/meta/style patterns
+- **Input flexibility**: local file, `hf://user/ds[:column]`, or stdin (`-`)
+- **Provider matrix**: Bedrock (default), Ollama, Anthropic, OpenAI — launcher auto-wires the right secret
+- **Provenance**: every generated record carries `generated_by = "doer --hf-jobs gen @ <job_id>"` — filter synthetic vs. human records trivially
+- **Idempotent**: rerun same prompts, nothing happens (sha256 dedupe against existing dataset)
+- **Cost**: ~$0.60 per 500 records (Bedrock Opus 4.7 @ concurrency=8)
+- **Full loop is now cloud-native**: generate → train → deploy, zero laptop involvement
+
+### Packaging
+- **`doer.hf_jobs` package-data now includes `*.txt`** so `prompts.example.txt` ships in the wheel
+- Version bump `0.6.1 → 0.7.0` (minor — new feature, fully backward-compatible)
+
+### Migration
+No breaking changes. The `gen` subcommand is additive; existing `text` / `vlm` / `omni` / `ps` / `logs` / `hw` workflows unchanged.
+
 ## v0.6.1 — 2026-04-20
 
 ### Packaging polish

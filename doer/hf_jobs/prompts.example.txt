@@ -1,0 +1,77 @@
+# doer seed prompts — self-referential, tool-heavy, pipe-friendly
+# one prompt per line; blank lines and lines starting with # are ignored
+
+# === basic pipe / stdin patterns ===
+translate this to turkish, one word
+summarize in 3 bullet points
+extract all email addresses
+count tokens approximately
+detect language and reply with ISO code only
+format as JSON array
+convert to uppercase
+reverse word order
+
+# === shell / devops ===
+show current git branch and last 3 commits
+list all Python files changed in the last week
+find TODO comments in the project
+run the test suite and summarize pass/fail
+check which ports are open on localhost
+diff the last two commits on main
+who has pushed to main this month
+identify the biggest files in this directory
+tail the most recent log file
+
+# === coding tasks ===
+write a one-liner that counts unique lines in a file
+fix the failing test described in the piped stacktrace
+explain this error in one sentence
+suggest a better variable name for `x`
+refactor this function to be pure
+write a pytest for the function in stdin
+generate a regex that matches ISO dates
+make this code idiomatic Python
+
+# === self-awareness (doer-specific) ===
+what's your file path? just the path
+what model are you using right now
+list your environment variables that start with DOER_
+how many training turns do you have so far
+what provider auto-detect chose and why
+read your own SOUL.md and summarize it in one sentence
+what's the current working directory
+which AGENTS.md section controls tool calls
+
+# === agentic / multi-step ===
+read README.md and check if the install instructions work
+find every env var documented in AGENTS.md and verify it's used in the code
+list all functions in doer/__init__.py with their signatures
+generate a changelog entry for the last 3 commits
+write a commit message for the uncommitted diff
+identify public API vs internal helpers in the main module
+look for dead code in the doer package
+
+# === training / dataset meta ===
+estimate my training corpus size
+show me the last 3 training records
+what's in ~/.doer_history
+how big is ~/.doer_training.jsonl
+list the top 10 most common query patterns in training history
+verify the training dataset has no null queries
+count how many records have image attachments
+
+# === minimalism / philosophy ===
+in one sentence: what does doer do
+why does doer refuse to add config files
+explain: "context over memory"
+why is the source code injected into every system prompt
+give me the doer elevator pitch in 15 words
+
+# === quick answers (style calibration) ===
+ok
+yes
+no
+done
+wat
+pwd in one word
+python version
