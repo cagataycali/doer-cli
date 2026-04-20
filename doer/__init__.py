@@ -687,8 +687,34 @@ def _print_usage() -> None:
         "          doer --train-status             (stats + text/image/audio/video + HF sync)",
         "upload:   doer --upload-hf [repo]           (private HF dataset)",
         "          doer --upload-hf-public [repo]   (public HF dataset)",
+        "hf-jobs:  doer --hf-jobs                  (print bundled hf_jobs/ path)",
+        "          doer --hf-jobs text            (cloud text LoRA via HF Jobs)",
+        "          doer --hf-jobs vlm             (cloud VLM LoRA via HF Jobs)",
+        "          doer --hf-jobs omni            (cloud omni LoRA via HF Jobs)",
     ]
     for l in lines: print(l, file=sys.stderr)
+
+
+
+def _hf_jobs_path() -> str:
+    """Return absolute path to the bundled hf_jobs directory."""
+    import os
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hf_jobs')
+
+
+def _hf_jobs(argv: list) -> int:
+    """Dispatch to bundled hf_jobs/launch.sh. With no args, print the path."""
+    import os, subprocess
+    d = _hf_jobs_path()
+    launcher = os.path.join(d, 'launch.sh')
+    if not argv:
+        print(d)
+        return 0
+    if not os.path.exists(launcher):
+        print(f'doer: launcher not found at {launcher}', file=sys.stderr)
+        return 1
+    os.chmod(launcher, 0o755)
+    return subprocess.call([launcher] + argv)
 
 
 def cli() -> None:
@@ -710,6 +736,8 @@ def cli() -> None:
             sys.exit(upload_hf(repo=repo, private=(head == "--upload-hf")))
         if head == "--train-status":
             sys.exit(_train_status())
+        if head == "--hf-jobs":
+            sys.exit(_hf_jobs(argv[1:]))
 
     # main query path
     rest, imgs, auds, vids = _parse_argv(argv)

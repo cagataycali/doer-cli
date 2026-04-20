@@ -157,21 +157,21 @@ do --train 200
 
 ## train in the cloud (HuggingFace Jobs)
 
-Laptop LoRA caps out at ~1.7B models on Apple Silicon. For anything bigger — full fine-tunes, Qwen3-4B+, VLM, Omni — burn HF credits instead of battery. Doer ships three single-file UV scripts under `hf_jobs/` that run directly on HF infrastructure via `hf jobs uv run`.
+Laptop LoRA caps out at ~1.7B models on Apple Silicon. For anything bigger — full fine-tunes, Qwen3-4B+, VLM, Omni — burn HF credits instead of battery. Doer bundles three single-file UV scripts under `doer/hf_jobs/` (accessible via `doer --hf-jobs` after install) that run directly on HF infrastructure via `hf jobs uv run`.
 
 ```bash
 # one-shot dispatchers (reads from cagataydev/doer-training, pushes merged model)
-./hf_jobs/launch.sh text                    # Qwen3-1.7B LoRA, T4, ~$0.30
-./hf_jobs/launch.sh vlm                     # Qwen2.5-VL-3B image+text, A100, ~$5
-./hf_jobs/launch.sh omni                    # Qwen2.5-Omni-7B, H200, ~$10
+doer --hf-jobs text                    # Qwen3-1.7B LoRA, T4, ~$0.30
+doer --hf-jobs vlm                     # Qwen2.5-VL-3B image+text, A100, ~$5
+doer --hf-jobs omni                    # Qwen2.5-Omni-7B, H200, ~$10
 
 # override anything via env or pass-through flags
-MODEL=Qwen/Qwen3-4B FLAVOR=a10g-large ./hf_jobs/launch.sh text --iters 1000
+MODEL=Qwen/Qwen3-4B FLAVOR=a10g-large doer --hf-jobs text --iters 1000
 
 # monitor
-./hf_jobs/launch.sh ps
-./hf_jobs/launch.sh logs <job_id>
-./hf_jobs/launch.sh hw              # hardware list + $/hour
+doer --hf-jobs ps
+doer --hf-jobs logs <job_id>
+doer --hf-jobs hw              # hardware list + $/hour
 ```
 
 Each trainer is **one file** with inline UV deps — no repo setup, no Dockerfile. It pulls the dataset via `hf_hub_download` (raw JSONL, bypasses Arrow schema issues caused by heterogeneous records), runs SFT LoRA with `trl` + `peft`, **merges the adapter into the base**, and pushes the full merged model to `cagataydev/doer-<model-short>` (private).

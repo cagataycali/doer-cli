@@ -193,20 +193,20 @@ Laptop LoRA is great for 500-turn datasets on Qwen3-1.7B. When you want to scale
 
 ```bash
 # one-shot dispatchers (UV scripts, zero setup)
-./hf_jobs/launch.sh text                    # Qwen3-1.7B LoRA, T4, ~$0.30
-./hf_jobs/launch.sh vlm                     # Qwen2.5-VL-3B LoRA, A100, ~$5
-./hf_jobs/launch.sh omni                    # Qwen2.5-Omni-7B, H200, ~$10
+doer --hf-jobs text                    # Qwen3-1.7B LoRA, T4, ~$0.30
+doer --hf-jobs vlm                     # Qwen2.5-VL-3B LoRA, A100, ~$5
+doer --hf-jobs omni                    # Qwen2.5-Omni-7B, H200, ~$10
 
 # override anything via env or flags
-MODEL=Qwen/Qwen3-4B FLAVOR=a10g-large ./hf_jobs/launch.sh text --iters 1000
+MODEL=Qwen/Qwen3-4B FLAVOR=a10g-large doer --hf-jobs text --iters 1000
 
 # monitor
-./hf_jobs/launch.sh ps
-./hf_jobs/launch.sh logs <job_id>
-./hf_jobs/launch.sh hw          # list hardware + cost/hour
+doer --hf-jobs ps
+doer --hf-jobs logs <job_id>
+doer --hf-jobs hw          # list hardware + cost/hour
 ```
 
-Under the hood each dispatcher is one self-contained UV script in `hf_jobs/` — no repo cloning, no Dockerfile. The script pulls `cagataydev/doer-training` (your dataset), runs SFT LoRA with `trl` + `peft`, merges the adapter, and pushes the full merged model to `cagataydev/doer-<model-short>` automatically.
+Under the hood each dispatcher is one self-contained UV script bundled inside `doer/hf_jobs/` — no repo cloning, no Dockerfile. The script pulls `cagataydev/doer-training` (your dataset), runs SFT LoRA with `trl` + `peft`, merges the adapter, and pushes the full merged model to `cagataydev/doer-<model-short>` automatically.
 
 **Validated end-to-end on T4-medium ($0.60/hr):**
 - 522 turns → 468 train / 53 eval
@@ -220,7 +220,7 @@ Use the trained model anywhere:
 DOER_PROVIDER=transformers DOER_MODEL=cagataydev/doer-qwen3-17b do "what is doer"
 ```
 
-See [`hf_jobs/README.md`](hf_jobs/README.md) for full details and the three trainers (`train_text_lora.py`, `train_vlm.py`, `train_omni.py`).
+See the bundled [`hf_jobs/README.md`](doer/hf_jobs/README.md) (also accessible at `$(doer --hf-jobs)/README.md` after install) for full details and the three trainers (`train_text_lora.py`, `train_vlm.py`, `train_omni.py`).
 
 ## share the dataset (HuggingFace)
 

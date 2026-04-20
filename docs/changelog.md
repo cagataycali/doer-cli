@@ -1,3 +1,20 @@
+# changelog
+
+## v0.6.1 — 2026-04-20
+
+### Packaging polish
+- **`hf_jobs/` now ships inside the wheel** — no more `git clone` required to use HF Jobs training
+- **New `doer --hf-jobs` CLI shortcut** — dispatches to the bundled `launch.sh`:
+  - `doer --hf-jobs` — prints the bundled directory path
+  - `doer --hf-jobs text|vlm|omni` — launch cloud training (was `./hf_jobs/launch.sh ...`)
+  - `doer --hf-jobs ps|logs|hw` — manage running jobs / see hardware pricing
+- **Wheel size**: 16 KB → 50 KB (still tiny; adds 5 bundled files)
+- **Fixes**: pipx/conda install conflicts — clean install now works across shells
+
+### Migration
+- **Old**: `./hf_jobs/launch.sh text`
+- **New**: `doer --hf-jobs text` (or still works from a git clone)
+
 # Changelog
 
 Compressed history. Newest first.
