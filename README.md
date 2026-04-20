@@ -36,6 +36,12 @@ pip install doer-cli
 ```
 
 > Two binaries get installed: **`do`** (short) and **`doer`** (long). Pick your poison.
+>
+> **`do` conflict?** Some shells have `do` as a keyword (bash/zsh loops). The binary still works — `do "hello"` is unambiguous because of the argument. But if your shell auto-completes weirdly, alias it:
+> ```bash
+> echo "alias d="doer"" >> ~/.zshrc  # or ~/.bashrc
+> ```
+> Then use `d "your query"`.
 
 ## run
 
