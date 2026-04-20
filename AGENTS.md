@@ -69,12 +69,16 @@ Built fresh on every call by `_prompt()`:
 | `DOER_ADDITIONAL_REQUEST_FIELDS` | *(unset)*                                         | raw JSON for `additional_request_fields` |
 | `DOER_HISTORY`                   | `10`                                              | Q/A pairs in prompt           |
 | `DOER_SHELL_HISTORY`             | `20`                                              | shell cmds in prompt          |
+| `DOER_MLX_MODEL`                 | `mlx-community/Qwen3-1.7B-4bit`                   | mlx model id (Apple Silicon)  |
+| `DOER_ADAPTER`                   | *(unset)*                                         | LoRA adapter path (hot-swap)  |
+| `DOER_DEBUG`                     | *(unset)*                                         | print training-log errors     |
 
 ### provider auto-detect
 
 - if any of `AWS_BEARER_TOKEN_BEDROCK`, `AWS_ACCESS_KEY_ID`, or `AWS_PROFILE` is set → **bedrock**
+- else if on `darwin-arm64` AND `strands_mlx` importable → **mlx**
 - otherwise → **ollama**
-- force with `DOER_PROVIDER=ollama` or `DOER_PROVIDER=bedrock`
+- force with `DOER_PROVIDER=ollama|bedrock|mlx`
 
 ### bedrock notes
 
@@ -155,6 +159,60 @@ echo "# SOUL\nI am Groot." > /tmp/SOUL.md && cd /tmp && doer "who are you?"
 git tag v0.2.0 && git push --tags
 # → CI builds binaries (linux/macOS), publishes to PyPI
 ```
+
+## training loop (mlx provider, Apple Silicon)
+
+doer closes the training loop **in one repo**, one file, no indirection:
+
+```bash
+# 1. collect  — every `do "..."` call appends a full turn to ~/.doer_training.jsonl
+do "fix the failing test"
+do "explain this stacktrace" < err.log
+do "write a bash one-liner that ..."
+# ... x100+
+
+# 2. inspect
+do --train-status
+# → 127 turns | 2453.1KB | /Users/you/.doer_training.jsonl
+
+# 3. train   — in-process LoRA via mlx_lm.tuner (no strands-mlx trainer)
+pip install 'doer-cli[mlx]'   # optional extra: strands-mlx + mlx-lm
+do --train 200                # 200 iters, LoRA rank 8, AdamW, lr 1e-5
+# → ~/.doer_adapter/adapters.safetensors
+
+# 4. use     — hot-swap your trained self
+DOER_PROVIDER=mlx DOER_ADAPTER=~/.doer_adapter do "fix the failing test"
+```
+
+### ~/.doer_training.jsonl format
+
+One record per `do` call, fat/dense, self-contained:
+
+```json
+{
+  "ts": 1776587093,
+  "model": "bedrock global.anthropic.claude-opus-4-7 @ us-west-2",
+  "query": "original user query",
+  "system": "<full _prompt() output — SOUL + AGENTS + history + source, ~20KB>",
+  "messages": [
+    {"role": "user",      "content": [{"text": "..."}]},
+    {"role": "assistant", "content": [{"text": "..."}, {"toolUse": {...}}]},
+    {"role": "user",      "content": [{"toolResult": {...}}]},
+    {"role": "assistant", "content": [{"text": "..."}]}
+  ],
+  "tools": [{"name": "shell", "description": "...", "input_schema": {...}}]
+}
+```
+
+**Why fat:** disk is cheap (~20KB × 1000 turns = 20MB), self-contained records are ops-simple, training on the *live* system prompt (which regenerates every call from cwd/history/source anyway) matches how the model will be used.
+
+**Why one repo:** the training loop is ~50 lines calling `mlx_lm.tuner` directly. No `strands-mlx` trainer indirection. You own every line.
+
+### dependency footprint
+
+- default install: `strands-agents[ollama]` — no mlx, no training
+- `pip install 'doer-cli[mlx]'` → adds `strands-mlx` (which pulls `mlx-lm`, ~500MB) — inference + training
+- training uses `mlx_lm.tuner.*` directly; strands-mlx only used for `MLXModel` inference wrapper
 
 ## do not
 
