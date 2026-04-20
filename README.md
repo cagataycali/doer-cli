@@ -6,7 +6,7 @@
 
 ### `stdin → agent → stdout`
 
-**A Unix citizen that thinks.**
+**A Unix citizen that thinks. In text, images, audio, and video.**
 
 [![PyPI](https://img.shields.io/pypi/v/doer-cli.svg?style=for-the-badge&color=FF3D00&labelColor=0A0A0A)](https://pypi.org/project/doer-cli/)
 [![License](https://img.shields.io/badge/APACHE-2.0-FAFAF7?style=for-the-badge&labelColor=0A0A0A)](LICENSE)
@@ -21,100 +21,128 @@
 
 ## install
 
-Pick your path. All three give you `do` on your `$PATH`.
-
 ```bash
-# 1) pipx — isolated, auto-updatable (recommended)
+# pipx — isolated, auto-updatable (recommended)
 pipx install doer-cli
 
-# 2) pip — any venv
+# pip — any venv
 pip install doer-cli
 
-# 3) one-liner (prebuilt binary, no Python needed)
-# prebuilt binary installer — coming soon on GitHub Releases
+# optional extras
+pip install 'doer-cli[mlx]'   # local inference + LoRA training (Apple Silicon)
+pip install 'doer-cli[vlm]'   # vision/audio/video + VLM LoRA
+pip install 'doer-cli[hf]'    # huggingface dataset upload
+pip install 'doer-cli[all]'   # everything
 ```
 
-> Two binaries get installed: **`do`** (short) and **`doer`** (long). Pick your poison.
->
-> **`do` conflict?** Some shells have `do` as a keyword (bash/zsh loops). The binary still works — `do "hello"` is unambiguous because of the argument. But if your shell auto-completes weirdly, alias it:
+Two binaries land on `$PATH`: **`do`** (short) and **`doer`** (long).
+
+> `do` is a shell keyword in bash/zsh loops — the binary still works because of the argument (`do "hi"` is unambiguous), but if tab-completion misbehaves, alias it:
 > ```bash
-> echo "alias d="doer"" >> ~/.zshrc  # or ~/.bashrc
+> echo 'alias d="doer"' >> ~/.zshrc
 > ```
-> Then use `d "your query"`.
 
 ## run
 
 ```bash
+# text
 do "find files larger than 100MB"
 
-cat error.log  | do "what broke"
-git log -20    | do "write release notes"
-echo '{"a":1}' | do "to yaml"
+# pipe
+cat error.log | do "what broke"
+git log -20   | do "write release notes"
 curl -s api.io | do "summarize" | tee out.md
+
+# multimodal (auto-routes to mlx-vlm on Apple Silicon)
+do --img screenshot.png "what's in this UI?"
+do --audio meeting.wav   "transcribe and bullet the action items"
+do --video clip.mp4      "what's happening here?"
+do --img a.png --audio b.wav "..."   # omni model (auto-picked)
 ```
 
 ## what it is
 
 ```python
 Agent(
-    model=Ollama(...),
+    model=<auto: bedrock | ollama | mlx | mlx-vlm>,
     tools=[shell] + hot_reload("./tools"),
     system_prompt=SOUL.md + AGENTS.md + ~/.doer_history
                 + ~/.bash_history + ~/.zsh_history + own_source,
-)(stdin + argv)
+)(stdin + argv + images + audio + video)
 ```
 
-That's the entire architecture. **~420 lines** of Python. It reads your shell like a person reads a room — and can train on its own transcripts.
+**One file.** `doer/__init__.py` — ~730 lines. Reads your shell like a person reads a room. Trains on its own transcripts. Swaps its own brain.
 
 ## context it sees every call
 
-| source                 | what                                               |
-| ---------------------- | -------------------------------------------------- |
-| `SOUL.md` (cwd)        | who it is in this project                          |
-| `AGENTS.md` (cwd)      | rules for this project                             |
-| `~/.doer_history`      | last N Q/A (`DOER_HISTORY=10`)                     |
-| `~/.bash_history` + `~/.zsh_history` | last N commands (`DOER_SHELL_HISTORY=20`) |
-| `./tools/*.py`         | hot-reloaded `@tool` functions                     |
-| own source             | full self-awareness                                |
+| source                               | what                                                   |
+| ------------------------------------ | ------------------------------------------------------ |
+| `SOUL.md` (cwd)                      | who it is in this project                              |
+| `AGENTS.md` (cwd)                    | rules for this project                                 |
+| `~/.doer_history`                    | last N Q/A (`DOER_HISTORY=10`)                         |
+| `~/.bash_history` + `~/.zsh_history` | last N commands (`DOER_SHELL_HISTORY=20`)              |
+| `./tools/*.py`                       | hot-reloaded `@tool` functions                         |
+| own source                           | full self-awareness                                    |
+| `--img / --audio / --video`          | raw media sent to a VLM (routed automatically)         |
 
 No database. No config file. **The filesystem is the memory.**
 
 ## providers
 
-Auto-picked by what's on your machine.
+Auto-picked from what's on your machine. Override with `DOER_PROVIDER`.
+
+| provider  | when                                                        | model default                                   |
+| --------- | ----------------------------------------------------------- | ----------------------------------------------- |
+| `bedrock` | AWS creds present (`AWS_BEARER_TOKEN_BEDROCK` / STS / SSO)  | `global.anthropic.claude-opus-4-7` (1M ctx)     |
+| `mlx-vlm` | Apple Silicon + `[vlm]` extra + `--img/--audio/--video`     | `Qwen2.5-VL-3B` / `gemma-3n` / `Qwen3-Omni`     |
+| `mlx`     | Apple Silicon + `[mlx]` extra (text-only, trained adapter)  | `mlx-community/Qwen3-1.7B-4bit`                 |
+| `ollama`  | fallback — local, private, no keys                          | `qwen3:1.7b`                                    |
 
 ```bash
-# Bedrock (default when AWS creds exist) — Claude Opus 4.7, 1M ctx, 128k out
-export AWS_BEARER_TOKEN_BEDROCK=...   # or standard AWS_* creds
-do "review this" < diff.patch
-
-# Ollama (fallback) — local, private, no keys
-ollama serve & ollama pull qwen3:1.7b
+# force a provider
 DOER_PROVIDER=ollama do "quick ping"
+DOER_PROVIDER=mlx DOER_ADAPTER=~/.doer_adapter do "use my trained self"
 ```
 
 ## env knobs
 
 ```bash
 # provider selection
-DOER_PROVIDER=                   # "" (auto) | "bedrock" | "ollama"
+DOER_PROVIDER=                   # "" (auto) | bedrock | ollama | mlx | mlx-vlm
 
 # bedrock (defaults tuned for Claude Opus 4.7)
 DOER_BEDROCK_MODEL=global.anthropic.claude-opus-4-7
 DOER_BEDROCK_REGION=us-west-2
 DOER_MAX_TOKENS=128000           # Opus 4.7 native max
-DOER_ANTHROPIC_BETA=context-1m-2025-08-07   # auto on Claude — "" to disable
+DOER_TEMPERATURE=                # unset on Opus 4.7+ (returns 400 otherwise)
+DOER_TOP_P=                      # unset on Opus 4.7+
+DOER_CACHE_PROMPT=               # "1" / "true" → prompt caching
+DOER_ANTHROPIC_BETA=context-1m-2025-08-07   # csv; auto on Claude — "" to disable
+DOER_ADDITIONAL_REQUEST_FIELDS=  # raw JSON escape hatch
+DOER_BEDROCK_GUARDRAIL_ID=       # optional Bedrock guardrail
+DOER_BEDROCK_GUARDRAIL_VERSION=
 
 # ollama
 DOER_MODEL=qwen3:1.7b
 OLLAMA_HOST=http://localhost:11434
 
+# mlx (Apple Silicon)
+DOER_MLX_MODEL=mlx-community/Qwen3-1.7B-4bit
+DOER_ADAPTER=                    # path to trained text LoRA
+DOER_MLX_VLM_MODEL=mlx-community/Qwen2.5-VL-3B-Instruct-4bit
+DOER_MLX_AUDIO_MODEL=mlx-community/gemma-3n-E2B-it-4bit
+DOER_MLX_OMNI_MODEL=mlx-community/Qwen3-Omni-30B-A3B-Instruct-4bit
+DOER_VLM_ADAPTER=                # path to trained VLM LoRA
+
 # context
 DOER_HISTORY=10                  # Q/A rows in prompt
 DOER_SHELL_HISTORY=20            # shell rows in prompt
-```
+DOER_DEBUG=                      # "1" → verbose errors
 
-> **Opus 4.7 heads-up:** `temperature` / `top_p` return 400 on any non-default value — `doer` only sends them when you explicitly set `DOER_TEMPERATURE` / `DOER_TOP_P`.
+# huggingface upload
+DOER_HF_REPO=<user>/doer-training   # override target
+HF_TOKEN=                           # or `huggingface-cli login`
+```
 
 ## extend in 60 seconds
 
@@ -131,30 +159,52 @@ def weather(city: str) -> str:
 
 Next call: `do "istanbul weather?"` — hot-reloaded, no restart.
 
-## train on yourself (Apple Silicon)
+## the loop: collect → train → swap
 
-`doer` closes its own loop. Every call appends a **dense, self-contained training record** to `~/.doer_training.jsonl` — full system prompt, all messages, tool specs, native tool-call tokens preserved.
+`doer` closes its own training loop. Every call appends a **dense, self-contained record** to `~/.doer_training.jsonl` — full system prompt, all messages, tool specs, native `<tool_call>` tokens preserved.
 
 ```bash
 # 1. collect (automatic — just use doer)
 do "fix this stacktrace" < err.log
-do "write a sql query that ..."
-# ... 100+ real turns
+do --img ui.png "label the bugs in this screenshot"
+# ... 100+ real turns across text/image/audio/video
 
 # 2. inspect
 do --train-status
-# → 127 turns | 2453.1KB | /Users/you/.doer_training.jsonl
+# → 127 turns | 2453.1KB | sha256:250c406b | ~/.doer_training.jsonl
+#     text:102  image:18  audio:3  video:4
+#     hf:    cagataydev/doer-training | in sync
 
-# 3. train — in-process LoRA (no strands-mlx trainer indirection)
-pip install 'doer-cli[mlx]'
-do --train 200                # 200 iters, LoRA rank 8, AdamW, lr 1e-5
-# → ~/.doer_adapter/adapters.safetensors
+# 3. train — in-process LoRA (no trainer indirection, ~50 lines calling mlx_lm.tuner)
+do --train 200                # text LoRA     → ~/.doer_adapter
+do --train-vlm 300            # vision LoRA   → ~/.doer_vlm_adapter
 
 # 4. use your trained self
-DOER_PROVIDER=mlx DOER_ADAPTER=~/.doer_adapter do "fix this stacktrace" < err.log
+DOER_PROVIDER=mlx     DOER_ADAPTER=~/.doer_adapter         do "fix this" < err.log
+DOER_PROVIDER=mlx-vlm DOER_VLM_ADAPTER=~/.doer_vlm_adapter do --img x.png "what's this?"
 ```
 
-Training calls `mlx_lm.tuner` directly. ~50 lines. Preserves native `<tool_call>` tokens via the tokenizer's chat template — your adapter learns **real** tool-use, not string mimicry. Opt-in extra (`doer-cli[mlx]`) pulls `strands-mlx` + `mlx-lm`; default install stays lean.
+Training preserves native tool-call tokens via the tokenizer's chat template — your adapter learns **real** tool-use, not string mimicry.
+
+## share the dataset (HuggingFace)
+
+```bash
+pip install 'doer-cli[hf]'
+
+do --upload-hf                       # → <user>/doer-training (private)
+do --upload-hf cagataydev/my-data    # custom repo
+do --upload-hf-public                # public dataset
+```
+
+Idempotent — one atomic commit per run (`train.jsonl` + README with schema/stats/sha). Reuses `huggingface-cli login` or `HF_TOKEN`. `--train-status` shows local sha vs last remote commit.
+
+**Round-trip anywhere:**
+
+```bash
+hf download cagataydev/doer-training --repo-type dataset --local-dir /tmp/d
+cp /tmp/d/data/train.jsonl ~/.doer_training.jsonl
+do --train 200
+```
 
 ## philosophy
 
@@ -170,16 +220,16 @@ Read [**SOUL.md**](SOUL.md) for the manifesto. Read [**AGENTS.md**](AGENTS.md) f
 
 ## family
 
-| project    | size       | purpose                           |
-| ---------- | ---------- | --------------------------------- |
-| **doer**   | ~420 LOC   | one pipe, one shell, one file, one loop (collect→train→swap) |
-| [**DevDuck**](https://github.com/cagataycali/devduck) | 60+ tools  | every protocol, every edge |
+| project                                              | size      | purpose                                                       |
+| ---------------------------------------------------- | --------- | ------------------------------------------------------------- |
+| **doer**                                             | ~730 LOC  | one pipe, one shell, one file, one loop (collect→train→swap) |
+| [**DevDuck**](https://github.com/cagataycali/devduck) | 60+ tools | every protocol, every edge                                    |
 
 ## uninstall
 
 ```bash
 pipx uninstall doer-cli    # or: pip uninstall doer-cli
-rm /usr/local/bin/do       # if installed via curl
+rm /usr/local/bin/do       # if installed via binary
 ```
 
 ## license

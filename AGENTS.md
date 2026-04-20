@@ -3,8 +3,8 @@
 ## project
 - **what:** one-file pipe-native AI agent
 - **lang:** python 3.10+
-- **dep:** `strands-agents[ollama]` (only)
-- **entry:** `doer/__init__.py` · 164 lines
+- **dep:** `strands-agents[ollama]` (core); optional extras: `[mlx]` · `[vlm]` · `[hf]` · `[all]`
+- **entry:** `doer/__init__.py` · ~730 lines
 - **install:** `pip install doer-cli` or download binary from releases
 - **license:** Apache-2.0
 
@@ -25,7 +25,7 @@ build.sh           # local PyInstaller build
 ## design rules
 
 1. **one source file** — all logic in `doer/__init__.py`
-2. **one external dep** — `strands-agents[ollama]`, nothing else
+2. **lean deps** — `strands-agents[ollama]` core; `mlx`/`vlm`/`hf` are opt-in extras, zero cost if unused
 3. **no classes unless the SDK forces it** — functions are cheaper
 4. **context over memory** — don't store state, recompute from filesystem
 5. **unix over RPC** — stdin/stdout/pipes, not HTTP/WebSocket
@@ -33,13 +33,14 @@ build.sh           # local PyInstaller build
 
 ## prompt injection (what the agent sees every call)
 
-Built fresh on every call by `_prompt()`:
+Built fresh on every call by `_build_prompt()`:
 - env (`sys.platform`) + cwd (`Path.cwd()`)
 - model info + own `__file__` path
 - `SOUL.md` from cwd (if present)
 - `AGENTS.md` from cwd (if present)
 - `~/.doer_history` — last `DOER_HISTORY` Q/A pairs (default 10)
 - `~/.bash_history` + `~/.zsh_history` — last `DOER_SHELL_HISTORY` commands (default 20)
+- `--img` / `--audio` / `--video` flags → raw media attached (auto-routes to VLM)
 - full source of `doer/__init__.py` — self-awareness
 
 ## conventions
@@ -71,16 +72,21 @@ Built fresh on every call by `_prompt()`:
 | `DOER_SHELL_HISTORY`             | `20`                                              | shell cmds in prompt          |
 | `DOER_MLX_MODEL`                 | `mlx-community/Qwen3-1.7B-4bit`                   | mlx model id (Apple Silicon)  |
 | `DOER_ADAPTER`                   | *(unset)*                                         | LoRA adapter path (hot-swap)  |
+| `DOER_MLX_VLM_MODEL`             | `mlx-community/Qwen2.5-VL-3B-Instruct-4bit`       | vision model (--img)          |
+| `DOER_MLX_AUDIO_MODEL`            | `mlx-community/gemma-3n-E2B-it-4bit`              | audio model (--audio)         |
+| `DOER_MLX_OMNI_MODEL`             | `mlx-community/Qwen3-Omni-30B-A3B-Instruct-4bit`  | omni (img+audio mix)          |
+| `DOER_VLM_ADAPTER`                | *(unset)*                                         | VLM LoRA adapter path         |
 | `DOER_DEBUG`                     | *(unset)*                                         | print training-log errors     |
 | `DOER_HF_REPO`                   | `<hf-user>/doer-training`                         | target HF dataset for upload  |
 | `HF_TOKEN`                       | *(fallback: `~/.cache/huggingface/token`)*        | HuggingFace auth token        |
 
 ### provider auto-detect
 
-- if any of `AWS_BEARER_TOKEN_BEDROCK`, `AWS_ACCESS_KEY_ID`, or `AWS_PROFILE` is set → **bedrock**
+- if `--img`/`--audio`/`--video` flag present AND `mlx-vlm` installed → **mlx-vlm** (auto-routes to vision/audio/omni model)
+- else if any of `AWS_BEARER_TOKEN_BEDROCK`, `AWS_ACCESS_KEY_ID`, or `AWS_PROFILE` is set → **bedrock**
 - else if on `darwin-arm64` AND `strands_mlx` importable → **mlx**
 - otherwise → **ollama**
-- force with `DOER_PROVIDER=ollama|bedrock|mlx`
+- force with `DOER_PROVIDER=ollama|bedrock|mlx|mlx-vlm`
 
 ### bedrock notes
 
@@ -178,12 +184,15 @@ do --train-status
 # → 127 turns | 2453.1KB | /Users/you/.doer_training.jsonl
 
 # 3. train   — in-process LoRA via mlx_lm.tuner (no strands-mlx trainer)
-pip install 'doer-cli[mlx]'   # optional extra: strands-mlx + mlx-lm
-do --train 200                # 200 iters, LoRA rank 8, AdamW, lr 1e-5
-# → ~/.doer_adapter/adapters.safetensors
+pip install 'doer-cli[mlx]'   # text LoRA
+pip install 'doer-cli[vlm]'   # vision LoRA (adds mlx-vlm + datasets)
+
+do --train 200                # text LoRA   → ~/.doer_adapter/adapters.safetensors
+do --train-vlm 300            # vision LoRA → ~/.doer_vlm_adapter/adapters.safetensors
 
 # 4. use     — hot-swap your trained self
-DOER_PROVIDER=mlx DOER_ADAPTER=~/.doer_adapter do "fix the failing test"
+DOER_PROVIDER=mlx     DOER_ADAPTER=~/.doer_adapter         do "fix the failing test"
+DOER_PROVIDER=mlx-vlm DOER_VLM_ADAPTER=~/.doer_vlm_adapter do --img x.png "what's this?"
 ```
 
 ### ~/.doer_training.jsonl format
