@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """doer — one-file pipe-native self-aware agent.
 
-Zero-shot rewrite. Same public surface as upstream:
-    doer("query")                         # python
-    doer <query>                          # shell
-    echo data | doer <query>              # stdin
-    doer --img X.png <query>              # vision
-    doer --train [iters]                  # text LoRA
-    doer --train-vlm [iters]              # vision LoRA
-    doer --train-status                   # stats + HF sync
-    doer --upload-hf [repo]               # push dataset
+doer("query")                         # python
+doer <query>                          # shell
+echo data | doer <query>              # stdin
+doer --img X.png <query>              # vision
+doer --train [iters]                  # text LoRA
+doer --train-vlm [iters]              # vision LoRA
+doer --train-status                   # stats + HF sync
+doer --upload-hf [repo]               # push dataset
 
 Layout (top → bottom, dependencies flow down):
     1. CONFIG         env knobs
