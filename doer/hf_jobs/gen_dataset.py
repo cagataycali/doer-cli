@@ -37,6 +37,144 @@ from pathlib import Path
 
 
 # ── record emission (mirrors doer/__init__.py::_log_turn) ────────────────
+
+def _build_dataset_card(dataset_id, jsonl_text, job_id, appended_this_run=0):
+    """Inline dataset card builder — validated YAML + real stats."""
+    import json as _j, time as _t
+    from collections import Counter as _C
+    total, modal, models, total_chars, tool_calls = 0, _C(), _C(), 0, 0
+    for line in (jsonl_text or "").splitlines():
+        if not line.strip(): continue
+        try: r = _j.loads(line)
+        except: continue
+        total += 1
+        q = r.get("query", "")
+        if "<image>" in q or "![" in q or "--img" in q: modal["image"] += 1
+        elif "<audio>" in q or "--audio" in q: modal["audio"] += 1
+        elif "<video>" in q or "--video" in q: modal["video"] += 1
+        else: modal["text"] += 1
+        models[r.get("model", "unknown")] += 1
+        total_chars += len(_j.dumps(r, default=str))
+        for msg in r.get("messages", []):
+            if isinstance(msg.get("content"), list):
+                for b in msg["content"]:
+                    if isinstance(b, dict) and "toolUse" in b: tool_calls += 1
+
+    def _size(n):
+        for thr, lbl in [(1000,"n<1K"),(10000,"1K<n<10K"),(100000,"10K<n<100K"),
+                         (1000000,"100K<n<1M"),(10000000,"1M<n<10M")]:
+            if n < thr: return lbl
+        return "n>10M"
+
+    pretty = dataset_id.split("/")[-1].replace("-"," ").replace("_"," ").title()
+    modal_tags = []
+    if modal.get("image"): modal_tags.append("vision")
+    if modal.get("audio"): modal_tags.append("audio")
+    if modal.get("video"): modal_tags.append("video")
+
+    yaml = f"""---
+pretty_name: {pretty}
+language:
+  - en
+license: apache-2.0
+task_categories:
+  - text-generation
+  - question-answering
+task_ids:
+  - open-domain-qa
+  - language-modeling
+size_categories:
+  - {_size(total)}
+tags:
+  - doer
+  - agent
+  - tool-use
+  - function-calling
+  - strands-agents
+  - sft
+  - instruction-tuning"""
+    for t in modal_tags:
+        yaml += f"\n  - {t}"
+    yaml += """
+configs:
+  - config_name: default
+    data_files:
+      - split: train
+        path: data/train.jsonl
+---
+"""
+
+    mod_breakdown = "\n".join(f"  - **{k}**: {v:,}" for k,v in sorted(modal.items(), key=lambda x: -x[1])) or "  - (empty)"
+    model_breakdown = "\n".join(f"  - `{m}`: {c:,}" for m,c in models.most_common(5)) or "  - (empty)"
+    size_mb = total_chars / 1_048_576
+
+    body = f"""
+# {pretty}
+
+> Dense training records from [`doer`](https://github.com/cagataycali/doer-cli) — a one-file, pipe-native AI agent.
+
+Every record captures a **real agent turn**: full system prompt, user query, multi-step assistant responses (including tool calls + results), and tool schemas. Designed to teach language models *when* and *how* to use tools.
+
+## 📊 Stats
+
+- **Total records**: {total:,}
+- **Total tool calls captured**: {tool_calls:,}
+- **Dataset size**: {size_mb:.1f} MB
+- **Last updated**: {_t.strftime('%Y-%m-%d %H:%M UTC', _t.gmtime())} (job `{job_id}`)
+- **Appended this run**: {appended_this_run:,}
+
+### Modality mix
+{mod_breakdown}
+
+### Top generator models
+{model_breakdown}
+
+## 📐 Schema
+
+```jsonc
+{{
+  "ts": 1776707007,
+  "model": "bedrock ... @ region",
+  "query": "original user query",
+  "system": "<full doer system prompt>",
+  "messages": [
+    {{"role": "user",      "content": [{{"text": "..."}}]}},
+    {{"role": "assistant", "content": [{{"text": "..."}}, {{"toolUse": {{...}}}}]}},
+    {{"role": "user",      "content": [{{"toolResult": {{...}}}}]}},
+    {{"role": "assistant", "content": [{{"text": "..."}}]}}
+  ],
+  "tools": [{{"name": "shell", "description": "...", "input_schema": {{...}}}}]
+}}
+```
+
+## 🚀 Use
+
+```python
+from datasets import load_dataset
+ds = load_dataset("{dataset_id}", split="train")
+```
+
+```bash
+pip install doer-cli
+doer "some query"          # every call auto-logs to ~/.doer_training.jsonl
+doer --upload-hf {dataset_id}
+```
+
+## ⚖️ License
+Apache-2.0. Records may contain developer-environment info (cwd, shell history) — filter before downstream use.
+
+## 🔗 Links
+- **Repo**: https://github.com/cagataycali/doer-cli
+- **Package**: https://pypi.org/project/doer-cli
+
+---
+*Auto-generated. Edits below this line are preserved across runs.*
+
+<!-- USER_EDITS_BELOW -->
+"""
+    return yaml + body
+
+
 def _build_record(q: str, agent, model_desc: str, job_id: str) -> dict:
     msgs = [dict(m) if isinstance(m, dict) else m for m in (agent.messages or [])]
     tools = []
@@ -179,15 +317,28 @@ def append_to_dataset(records: list[dict], dataset: str, token: str,
     combined = "\n".join(existing_lines + new_lines) + "\n"
     buf = io.BytesIO(combined.encode("utf-8"))
 
-    readme = (
-        "# doer-training\n\n"
-        f"Dense training records from `doer`. Auto-appended by HF Job `{job_id}` "
-        f"on {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}.\n\n"
-        f"- total records: **{len(existing_lines) + len(new_lines)}**\n"
-        f"- appended this run: **{len(new_lines)}**\n"
-        f"- schema: `{{ts, model, query, system, messages, tools, generated_by?}}`\n"
-        "- one JSON object per line in `data/train.jsonl`\n"
+    # Build a proper dataset card — stats from real data, validated YAML frontmatter
+    readme = _build_dataset_card(
+        dataset_id=dataset,
+        jsonl_text=combined,
+        job_id=job_id,
+        appended_this_run=len(new_lines),
     )
+
+    # Preserve user edits below <!-- USER_EDITS_BELOW --> marker if present on the hub
+    try:
+        existing_readme_path = hf_hub_download(
+            dataset, "README.md", repo_type="dataset", token=token
+        )
+        existing_readme = Path(existing_readme_path).read_text(encoding="utf-8")
+        edit_marker = "<!-- USER_EDITS_BELOW -->"
+        if edit_marker in existing_readme:
+            user_edits = existing_readme.split(edit_marker, 1)[1]
+            if user_edits.strip():
+                readme = readme + user_edits
+    except Exception:
+        pass
+
     api.create_commit(
         repo_id=dataset,
         repo_type="dataset",

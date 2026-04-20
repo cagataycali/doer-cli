@@ -26,6 +26,76 @@ Usage:
 import argparse, base64, io, json, os, sys
 from pathlib import Path
 
+
+def _build_model_card(model_id, base_model, dataset_id, training, kind="text"):
+    """Inline model card builder — validated YAML frontmatter (per AGENTS.md: one file per trainer)."""
+    import time as _t
+    pretty = model_id.split("/")[-1].replace("-", " ").replace("_", " ").title()
+    meta = {
+        "text": ("text-generation", ["doer","lora","sft","tool-use","function-calling","agent","qwen3"],
+                 f"DOER_PROVIDER=transformers DOER_MODEL={model_id} doer \"what is doer\""),
+        "vlm":  ("image-text-to-text", ["doer","lora","vlm","vision","multimodal","agent","qwen2.5-vl"],
+                 f"DOER_PROVIDER=mlx-vlm DOER_MLX_VLM_MODEL={model_id} doer --img photo.jpg \"describe\""),
+        "omni": ("any-to-any", ["doer","lora","omni","multimodal","vision","audio","agent"],
+                 f"DOER_PROVIDER=transformers DOER_MODEL={model_id} doer --img x.png --audio y.wav \"describe\""),
+    }[kind]
+    pipeline_tag, tags, usage = meta
+    yaml = f"""---
+base_model: {base_model}
+datasets:
+  - {dataset_id}
+language:
+  - en
+library_name: transformers
+license: apache-2.0
+pipeline_tag: {pipeline_tag}
+pretty_name: {pretty}
+tags:
+"""
+    for t in tags:
+        yaml += f"  - {t}\n"
+    yaml += "---\n"
+
+    mod_line = ""
+    if kind == "omni":
+        parts = []
+        if training.get("text_n"):  parts.append(f"{training['text_n']} text")
+        if training.get("image_n"): parts.append(f"{training['image_n']} image")
+        if training.get("audio_n"): parts.append(f"{training['audio_n']} audio")
+        if parts: mod_line = f"- **Modality mix**: {', '.join(parts)}\n"
+
+    body = f"""
+# {pretty}
+
+Fine-tune of [`{base_model}`](https://huggingface.co/{base_model}) on [`{dataset_id}`](https://huggingface.co/datasets/{dataset_id}) — agent tool-use & instruction-following data from [`doer`](https://github.com/cagataycali/doer-cli).
+
+## 🎯 Training
+
+- **Base model**: `{base_model}`
+- **Method**: LoRA (r={training.get("lora_r","?")}, α={training.get("lora_alpha","?")}, merged)
+- **Steps**: {training.get("steps","?")}
+- **Learning rate**: {training.get("lr","?")}
+- **Dataset**: `{dataset_id}` — {training.get("train_n","?")} train / {training.get("eval_n","?")} eval
+{mod_line}
+## 🚀 Use
+
+```bash
+pip install doer-cli
+{usage}
+```
+
+## 🔗 Links
+
+- **Base**: https://huggingface.co/{base_model}
+- **Dataset**: https://huggingface.co/datasets/{dataset_id}
+- **doer CLI**: https://github.com/cagataycali/doer-cli
+
+---
+*Auto-generated on {_t.strftime('%Y-%m-%d %H:%M UTC', _t.gmtime())}.*
+"""
+    return yaml + body
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="Qwen/Qwen2.5-VL-3B-Instruct")
@@ -245,29 +315,21 @@ def main():
         api.upload_folder(folder_path=str(adapter_dir), repo_id=args.push_to, repo_type="model",
                           commit_message=f"doer VLM adapter · {args.iters} steps")
 
-    card = f"""---
-base_model: {args.model}
-tags: [doer, vlm, lora, qwen2.5-vl]
-datasets: [{args.dataset}]
----
-
-# doer VLM — vision fine-tune of `{args.model}`
-
-Trained on image turns from [`{args.dataset}`]({args.dataset}).
-
-- **base**: `{args.model}`
-- **method**: LoRA r={args.lora_r} (merged)
-- **image records**: {len(mm_records)}
-- **steps**: {args.iters}
-
-## Use
-
-```bash
-DOER_PROVIDER=mlx-vlm \\
-  DOER_MLX_VLM_MODEL={args.push_to} \\
-  doer --img photo.jpg "describe"
-```
-"""
+    # model card — centralized generator with validated YAML frontmatter
+    card = _build_model_card(
+        model_id=args.push_to,
+        base_model=args.model,
+        dataset_id=args.dataset,
+        training={
+            "steps": args.iters,
+            "lora_r": args.lora_r,
+            "lora_alpha": getattr(args, "lora_alpha", args.lora_r * 2),
+            "train_n": len(mm_records),
+            "eval_n": 0,
+            "image_n": len(mm_records),
+        },
+        kind="vlm",
+    )
     (out / "README.md").write_text(card)
     api.upload_file(path_or_fileobj=str(out / "README.md"), path_in_repo="README.md",
                     repo_id=args.push_to, repo_type="model")
