@@ -15,6 +15,9 @@ _BEDROCK_MODEL = os.environ.get("DOER_BEDROCK_MODEL", "global.anthropic.claude-o
 _BEDROCK_REGION = os.environ.get("DOER_BEDROCK_REGION", os.environ.get("AWS_REGION", "us-west-2"))
 _N_DOER = int(os.environ.get("DOER_HISTORY", "10"))    # doer Q/A pairs
 _N_SHELL = int(os.environ.get("DOER_SHELL_HISTORY", "20"))  # bash+zsh commands
+_MLX_MODEL = os.environ.get("DOER_MLX_MODEL", "mlx-community/Qwen3-1.7B-4bit")
+_ADAPTER = os.environ.get("DOER_ADAPTER", "")
+_TRAIN_JSONL = Path.home() / ".doer_training.jsonl"
 
 from strands import Agent, tool
 from strands.handlers.callback_handler import null_callback_handler
@@ -97,25 +100,191 @@ def _ctx(name: str) -> str:
     return ""
 
 
-def _append(q: str, a: str):
-    """Append Q/A to history."""
+def _append(q: str, a, agent=None, model_desc: str = ""):
+    """Append Q/A to human-readable history + dense training JSONL.
+
+    ~/.doer_history       — flat Q/A pairs for prompt context recall (unchanged)
+    ~/.doer_training.jsonl — full turn (system + messages + tools) per line, ready to train
+    """
+    ts = int(time.time())
+    # 1. legacy human-grep history (unchanged format, used by _doer_history for prompt context)
     try:
-        ts = int(time.time())
         a_flat = str(a).replace("\n", " ")[:1000]
         with _HIST.open("a", encoding="utf-8") as f:
             f.write(f": {ts}:0;# doer_q: {q}\n")
             f.write(f": {ts}:0;# doer_a: {a_flat}\n")
         os.chmod(_HIST, 0o600)
     except Exception: pass
+    # 2. dense training record: full agent.messages + system + tool specs
+    if agent is None: return
+    try:
+        import json
+        msgs = [dict(m) if isinstance(m, dict) else m for m in (agent.messages or [])]
+        tools = []
+        reg = getattr(agent, "tool_registry", None)
+        if reg:
+            for name, t in getattr(reg, "registry", {}).items():
+                try:
+                    spec = t.tool_spec if hasattr(t, "tool_spec") else None
+                    if spec: tools.append({"name": spec.get("name", name),
+                                           "description": spec.get("description", ""),
+                                           "input_schema": spec.get("inputSchema", {}).get("json", {})})
+                except Exception: pass
+        rec = {"ts": ts, "model": model_desc, "query": q,
+               "system": agent.system_prompt or "",
+               "messages": msgs, "tools": tools}
+        with _TRAIN_JSONL.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False, default=str) + "\n")
+        os.chmod(_TRAIN_JSONL, 0o600)
+    except Exception as e:
+        if os.environ.get("DOER_DEBUG"): sys.stderr.write(f"(train log err: {e})\n")
+
+
+
+def _strands_to_openai(messages):
+    """Convert Strands ContentBlock messages to OpenAI chat format.
+
+    Preserves tool_calls as structured data so the tokenizer's chat template
+    emits native tool-call tokens (<tool_call>...</tool_call> on Qwen3, etc.)
+    instead of training the model to output literal '[tool_call: ...]' strings.
+    """
+    import json as _json
+    out = []
+    for m in messages or []:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        if not isinstance(content, list):
+            out.append({"role": role, "content": str(content)})
+            continue
+        # parallel accumulators: text, tool_uses (assistant), tool_results (as separate tool msgs)
+        text_parts, tool_uses, tool_results = [], [], []
+        for c in content:
+            if not isinstance(c, dict): continue
+            if "text" in c:
+                text_parts.append(c["text"])
+            elif "toolUse" in c:
+                tu = c["toolUse"]
+                tool_uses.append({
+                    "id": tu.get("toolUseId", ""),
+                    "type": "function",
+                    "function": {
+                        "name": tu.get("name", "unknown"),
+                        "arguments": _json.dumps(tu.get("input", {}), ensure_ascii=False),
+                    },
+                })
+            elif "toolResult" in c:
+                tr = c["toolResult"]
+                txt_parts = []
+                for rc in tr.get("content", []):
+                    if isinstance(rc, dict) and "text" in rc:
+                        txt_parts.append(rc["text"])
+                tool_results.append({
+                    "role": "tool",
+                    "tool_call_id": tr.get("toolUseId", ""),
+                    "content": "".join(txt_parts),
+                })
+        if role == "assistant":
+            msg = {"role": "assistant", "content": "".join(text_parts)}
+            if tool_uses: msg["tool_calls"] = tool_uses
+            if msg["content"] or tool_uses:
+                out.append(msg)
+        else:  # user role: text + tool_results become separate messages (OpenAI pattern)
+            if text_parts:
+                out.append({"role": "user", "content": "".join(text_parts)})
+            out.extend(tool_results)  # tool messages go AFTER the assistant with tool_calls
+    return out
+
+
+def train(iters: int = 200, lr: float = 1e-5, batch_size: int = 1, num_layers: int = 8,
+          adapter_path: str = "", model_id: str = "", val_frac: float = 0.1):
+    """In-process LoRA training on ~/.doer_training.jsonl.
+
+    Calls mlx_lm.tuner directly — no strands-mlx trainer indirection.
+    Emits OpenAI-format {messages, tools} records; mlx-lm's ChatDataset handles
+    tokenizer chat-template application, preserving native tool-call tokens.
+    """
+    import json, random, tempfile
+    from types import SimpleNamespace
+    try:
+        import mlx.optimizers as optim
+        from mlx_lm import load
+        from mlx_lm.tuner.trainer import TrainingArgs, train as _train
+        from mlx_lm.tuner.datasets import CacheDataset, load_dataset
+        from mlx_lm.tuner.utils import linear_to_lora_layers, print_trainable_parameters
+        from mlx_lm.utils import save_config
+    except ImportError as e:
+        sys.stderr.write(f"training requires mlx-lm: pip install 'doer-cli[mlx]'\n  ({e})\n"); return 1
+    if not _TRAIN_JSONL.exists():
+        sys.stderr.write(f"no training data at {_TRAIN_JSONL}\n"); return 1
+    model_id = model_id or _MLX_MODEL
+    adapter_path = Path(os.path.expanduser(adapter_path) if adapter_path else Path.home() / ".doer_adapter")
+    adapter_path.mkdir(parents=True, exist_ok=True)
+    sys.stderr.write(f"doer: loading {model_id}\n")
+    model, tok = load(model_id, tokenizer_config={"trust_remote_code": True})
+    records = [json.loads(ln) for ln in _TRAIN_JSONL.read_text().splitlines() if ln.strip()]
+    # skip records with empty agent.messages (LLM failed before appending anything)
+    records = [r for r in records if r.get("messages")]
+    if len(records) < 2:
+        sys.stderr.write(f"need >=2 usable records, have {len(records)}\n"); return 1
+    def _rec_to_chat(rec):
+        """Dense strands record → mlx-lm ChatDataset {messages, tools} entry."""
+        msgs = [{"role": "system", "content": rec.get("system", "")}] if rec.get("system") else []
+        msgs.extend(_strands_to_openai(rec.get("messages", [])))
+        tools = rec.get("tools", []) or None
+        entry = {"messages": msgs}
+        if tools:
+            # convert doer tool spec {name, description, input_schema} → OpenAI function spec
+            entry["tools"] = [{"type": "function", "function": {
+                "name": t["name"], "description": t.get("description", ""),
+                "parameters": t.get("input_schema", {})
+            }} for t in tools]
+        return entry
+    random.seed(0); random.shuffle(records)
+    n_val = max(1, int(len(records) * val_frac))
+    train_recs = [_rec_to_chat(r) for r in records[n_val:]]
+    valid_recs = [_rec_to_chat(r) for r in records[:n_val]]
+    sys.stderr.write(f"doer: {len(train_recs)} train / {len(valid_recs)} valid\n")
+    with tempfile.TemporaryDirectory() as d:
+        dp = Path(d)
+        for name, recs in (("train", train_recs), ("valid", valid_recs)):
+            (dp / f"{name}.jsonl").write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in recs))
+        args = SimpleNamespace(data=str(dp), hf_dataset=None, train=True, test=False,
+                               prompt_feature=None, completion_feature=None,
+                               chat_feature="messages", text_feature=None, mask_prompt=False)
+        train_set, valid_set, _ = load_dataset(args, tok)
+        model.freeze()
+        linear_to_lora_layers(model, num_layers, {"rank": 8, "dropout": 0.0, "scale": 20.0}, use_dora=False)
+        print_trainable_parameters(model)
+        save_config({"model": model_id, "iters": iters, "lr": lr, "batch_size": batch_size,
+                     "num_layers": num_layers, "fine_tune_type": "lora"},
+                    adapter_path / "adapter_config.json")
+        targs = TrainingArgs(batch_size=batch_size, iters=iters, val_batches=max(1, n_val),
+                             steps_per_report=10, steps_per_eval=max(50, iters//4),
+                             steps_per_save=max(100, iters//2),
+                             adapter_file=adapter_path / "adapters.safetensors",
+                             max_seq_length=2048, grad_checkpoint=True, grad_accumulation_steps=1)
+        opt = optim.AdamW(learning_rate=lr)
+        _train(model=model, args=targs, optimizer=opt,
+               train_dataset=CacheDataset(train_set), val_dataset=CacheDataset(valid_set),
+               training_callback=None)
+    sys.stderr.write(f"doer: trained → {adapter_path}/adapters.safetensors\n")
+    sys.stderr.write(f"       use: DOER_PROVIDER=mlx DOER_ADAPTER={adapter_path} do \"...\"\n")
+    return 0
 
 
 def _model():
     """Build model from provider. Auto-detect: bedrock if AWS creds, else ollama."""
     p = _PROVIDER
     if not p:
-        # auto: bedrock if creds present, else ollama
+        # auto: bedrock if creds present, else mlx on apple silicon if available, else ollama
         if os.environ.get("AWS_BEARER_TOKEN_BEDROCK") or os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE"):
             p = "bedrock"
+        elif sys.platform == "darwin" and os.uname().machine == "arm64":
+            try:
+                __import__("strands_mlx")
+                p = "mlx"
+            except ImportError:
+                p = "ollama"
         else:
             p = "ollama"
     if p == "bedrock":
@@ -152,6 +321,16 @@ def _model():
         if _arf:
             cfg["additional_request_fields"] = _arf
         return BedrockModel(region_name=_BEDROCK_REGION, **cfg), f"bedrock {_BEDROCK_MODEL} @ {_BEDROCK_REGION}"
+    if p == "mlx":
+        # optional extra: pip install doer-cli[mlx] — pulls strands-mlx + mlx-lm
+        try:
+            from strands_mlx import MLXModel
+        except ImportError:
+            sys.stderr.write("mlx provider requires: pip install 'doer-cli[mlx]'\n"); sys.exit(1)
+        adapter = os.path.expanduser(_ADAPTER) if _ADAPTER else None
+        m = MLXModel(model_id=_MLX_MODEL, adapter_path=adapter)
+        tag = f"mlx {_MLX_MODEL}" + (f" +adapter:{adapter}" if adapter else "")
+        return m, tag
     # default: ollama
     from strands.models.ollama import OllamaModel
     return OllamaModel(host=_OLLAMA_HOST, model_id=_OLLAMA_MODEL, keep_alive="5m"), f"ollama {_OLLAMA_MODEL} @ {_OLLAMA_HOST}"
@@ -170,6 +349,7 @@ def _prompt(model_desc: str) -> str:
 
 
 def _agent():
+    """Build a fresh agent. Returns (agent, model_desc) to avoid double _model() cost."""
     m, desc = _model()
     kw = dict(
         model=m,
@@ -179,13 +359,14 @@ def _agent():
         conversation_manager=NullConversationManager(),
     )
     if _PIPED: kw["callback_handler"] = null_callback_handler
-    return Agent(**kw)
+    return Agent(**kw), desc
 
 
 def ask(q):
     """doer('query')"""
-    r = _agent()(q)
-    _append(q, r)
+    a, desc = _agent()
+    r = a(q)
+    _append(q, r, agent=a, model_desc=desc)
     return r
 
 
@@ -197,8 +378,24 @@ sys.modules[__name__].__class__ = _Callable
 def cli():
     global _PIPED
     _PIPED = True
+    argv = sys.argv[1:]
+    # --train [iters]  — in-process LoRA on ~/.doer_training.jsonl
+    if argv and argv[0] == "--train":
+        iters = 200
+        if len(argv) > 1 and argv[1].isdigit(): iters = int(argv[1])
+        sys.exit(train(iters=iters))
+    # --train-status  — show dataset size
+    if argv and argv[0] == "--train-status":
+        import json
+        if not _TRAIN_JSONL.exists():
+            print(f"no training data at {_TRAIN_JSONL}", file=sys.stderr); sys.exit(1)
+        lines = _TRAIN_JSONL.read_text().splitlines()
+        n = len([l for l in lines if l.strip()])
+        sz = _TRAIN_JSONL.stat().st_size
+        print(f"{n} turns | {sz/1024:.1f}KB | {_TRAIN_JSONL}", file=sys.stderr)
+        sys.exit(0)
     stdin = "" if sys.stdin.isatty() else sys.stdin.read().strip()
-    args = " ".join(sys.argv[1:]).strip()
+    args = " ".join(argv).strip()
     q = "\n\n".join(x for x in [args, stdin] if x)
     if not q:
         _, desc = _model()
@@ -212,7 +409,10 @@ def cli():
         print(f"          DOER_MAX_TOKENS, DOER_TEMPERATURE, DOER_TOP_P, DOER_CACHE_PROMPT,", file=sys.stderr)
         print(f"          DOER_BEDROCK_GUARDRAIL_ID, DOER_BEDROCK_GUARDRAIL_VERSION,", file=sys.stderr)
         print(f"          DOER_ANTHROPIC_BETA (comma-sep), DOER_ADDITIONAL_REQUEST_FIELDS (JSON),", file=sys.stderr)
-        print(f"          DOER_HISTORY, DOER_SHELL_HISTORY", file=sys.stderr)
+        print(f"          DOER_HISTORY, DOER_SHELL_HISTORY,", file=sys.stderr)
+        print(f"          DOER_MLX_MODEL, DOER_ADAPTER  (mlx provider — Apple Silicon)", file=sys.stderr)
+        print(f"train:    do --train [iters]   (LoRA on ~/.doer_training.jsonl → ~/.doer_adapter)", file=sys.stderr)
+        print(f"          do --train-status    (show dataset size)", file=sys.stderr)
         sys.exit(1)
     print(str(ask(q)).strip())
 

@@ -11,6 +11,9 @@ requires-python = ">=3.10"
 dependencies = [
     "strands-agents[ollama]",
 ]
+
+[project.optional-dependencies]
+mlx = ["strands-mlx>=0.2.6"]   # Apple Silicon: local inference + LoRA training
 authors = [{name = "cagataycali"}]
 license = {text = "Apache-2.0"}
 keywords = ["ai", "agent", "ollama", "cli", "pipe", "unix"]
