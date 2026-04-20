@@ -72,6 +72,8 @@ Built fresh on every call by `_prompt()`:
 | `DOER_MLX_MODEL`                 | `mlx-community/Qwen3-1.7B-4bit`                   | mlx model id (Apple Silicon)  |
 | `DOER_ADAPTER`                   | *(unset)*                                         | LoRA adapter path (hot-swap)  |
 | `DOER_DEBUG`                     | *(unset)*                                         | print training-log errors     |
+| `DOER_HF_REPO`                   | `<hf-user>/doer-training`                         | target HF dataset for upload  |
+| `HF_TOKEN`                       | *(fallback: `~/.cache/huggingface/token`)*        | HuggingFace auth token        |
 
 ### provider auto-detect
 
@@ -213,6 +215,48 @@ One record per `do` call, fat/dense, self-contained:
 - default install: `strands-agents[ollama]` — no mlx, no training
 - `pip install 'doer-cli[mlx]'` → adds `strands-mlx` (which pulls `mlx-lm`, ~500MB) — inference + training
 - training uses `mlx_lm.tuner.*` directly; strands-mlx only used for `MLXModel` inference wrapper
+
+
+## upload to huggingface (private dataset)
+
+Push `~/.doer_training.jsonl` to a private HF dataset — share across machines, back it up, or train remotely.
+
+```bash
+# install optional hf extra (lazy import — no cost if unused)
+pip install 'doer-cli[hf]'
+
+# push to <user>/doer-training (private by default)
+doer --upload-hf
+
+# custom repo
+doer --upload-hf cagataydev/my-agent-data
+
+# public dataset
+doer --upload-hf-public
+
+# check sync state (shows local sha vs last remote commit)
+doer --train-status
+# → 105 turns | 16215.3KB | sha256:250c406b | /Users/cagatay/.doer_training.jsonl
+#     text:102  image:1  audio:0  video:2
+#     hf:    cagataydev/doer-training | upload 105 turns (...) | in sync
+```
+
+### how it works
+
+- **Idempotent**: single atomic commit per run (jsonl + README with schema/stats/sha).
+- **Auth**: reuses `huggingface-cli login` (`~/.cache/huggingface/token`) or `HF_TOKEN` env.
+- **Repo default**: `<your-hf-username>/doer-training`. Override with `DOER_HF_REPO=...` or positional arg.
+- **Private by default** — use `--upload-hf-public` to opt out.
+- **No change to dep tree** unless you `pip install 'doer-cli[hf]'` (lazy import in `upload_hf()`).
+
+### round-trip: download + train elsewhere
+
+```bash
+# on another machine
+hf download cagataydev/doer-training --repo-type dataset --local-dir /tmp/doer-data
+cp /tmp/doer-data/data/train.jsonl ~/.doer_training.jsonl
+doer --train 200
+```
 
 ## do not
 

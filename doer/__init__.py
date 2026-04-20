@@ -18,6 +18,14 @@ _N_SHELL = int(os.environ.get("DOER_SHELL_HISTORY", "20"))  # bash+zsh commands
 _MLX_MODEL = os.environ.get("DOER_MLX_MODEL", "mlx-community/Qwen3-1.7B-4bit")
 _ADAPTER = os.environ.get("DOER_ADAPTER", "")
 _TRAIN_JSONL = Path.home() / ".doer_training.jsonl"
+# MLX VLM models per capability. User can override via DOER_MLX_VLM_MODEL.
+# Defaults chosen for speed on M1/M2 — upgrade to Qwen3-Omni-30B-A3B-4bit for audio+video.
+_MLX_VLM_MODEL = os.environ.get("DOER_MLX_VLM_MODEL", "mlx-community/Qwen2.5-VL-3B-Instruct-4bit")
+_MLX_AUDIO_MODEL = os.environ.get("DOER_MLX_AUDIO_MODEL", "mlx-community/gemma-3n-E2B-it-4bit")  # 2B, vision+audio+video
+_MLX_OMNI_MODEL = os.environ.get("DOER_MLX_OMNI_MODEL", "mlx-community/Qwen3-Omni-30B-A3B-Instruct-4bit")
+_VLM_ADAPTER = os.environ.get("DOER_VLM_ADAPTER", "")
+_ATTACH = {"images": [], "audio": [], "video": []}  # per-call multimodal attachments
+
 
 from strands import Agent, tool
 from strands.handlers.callback_handler import null_callback_handler
@@ -100,7 +108,7 @@ def _ctx(name: str) -> str:
     return ""
 
 
-def _append(q: str, a, agent=None, model_desc: str = ""):
+def _append(q: str, a, agent=None, model_desc: str = "", attachments=None):
     """Append Q/A to human-readable history + dense training JSONL.
 
     ~/.doer_history       — flat Q/A pairs for prompt context recall (unchanged)
@@ -133,6 +141,10 @@ def _append(q: str, a, agent=None, model_desc: str = ""):
         rec = {"ts": ts, "model": model_desc, "query": q,
                "system": agent.system_prompt or "",
                "messages": msgs, "tools": tools}
+        if attachments:
+            for _k in ("images", "audio", "video"):
+                _v = attachments.get(_k) or []
+                if _v: rec[_k] = [str(Path(_p).resolve()) for _p in _v]
         with _TRAIN_JSONL.open("a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False, default=str) + "\n")
         os.chmod(_TRAIN_JSONL, 0o600)
@@ -221,9 +233,13 @@ def train(iters: int = 200, lr: float = 1e-5, batch_size: int = 1, num_layers: i
     adapter_path.mkdir(parents=True, exist_ok=True)
     sys.stderr.write(f"doer: loading {model_id}\n")
     model, tok = load(model_id, tokenizer_config={"trust_remote_code": True})
-    records = [json.loads(ln) for ln in _TRAIN_JSONL.read_text().splitlines() if ln.strip()]
-    # skip records with empty agent.messages (LLM failed before appending anything)
-    records = [r for r in records if r.get("messages")]
+    records = []
+    for ln in _TRAIN_JSONL.read_text().splitlines():
+        if not ln.strip(): continue
+        r = json.loads(ln)
+        # skip empty + multi-modal (use --train-vlm for those)
+        if r.get("messages") and not (r.get("images") or r.get("audio") or r.get("video")):
+            records.append(r)
     if len(records) < 2:
         sys.stderr.write(f"need >=2 usable records, have {len(records)}\n"); return 1
     def _rec_to_chat(rec):
@@ -272,9 +288,70 @@ def train(iters: int = 200, lr: float = 1e-5, batch_size: int = 1, num_layers: i
     return 0
 
 
+def train_vlm(iters=300, lr=1e-5, adapter_path="", model_id="", lora_rank=8):
+    """VLM LoRA on multi-modal records. Delegates to strands-mlx vision trainer tool."""
+    import json, tempfile
+    try:
+        from strands_mlx.tools.mlx_vision_trainer import mlx_vision_trainer
+        from datasets import Dataset
+    except ImportError as e:
+        sys.stderr.write("vlm training requires: pip install 'doer-cli[mlx]' datasets (" + str(e) + ")" + chr(10))
+        return 1
+    if not _TRAIN_JSONL.exists():
+        sys.stderr.write("no training data at " + str(_TRAIN_JSONL) + chr(10)); return 1
+    model_id = model_id or _MLX_VLM_MODEL
+    adapter_path = str(Path(os.path.expanduser(adapter_path) if adapter_path else Path.home() / ".doer_vlm_adapter"))
+    records = []
+    for ln in _TRAIN_JSONL.read_text().splitlines():
+        if not ln.strip(): continue
+        r = json.loads(ln)
+        if r.get("messages") and r.get("images"):
+            if all(Path(p).exists() for p in r["images"]):
+                records.append(r)
+    if len(records) < 2:
+        sys.stderr.write("need >=2 multi-modal records with images, have " + str(len(records)) + chr(10))
+        sys.stderr.write("  (collect via: do --img screenshot.png describe-this)" + chr(10))
+        return 1
+    sys.stderr.write("doer-vlm: " + str(len(records)) + " multi-modal records" + chr(10))
+    rows = []
+    for r in records:
+        msgs = _strands_to_openai(r.get("messages", []))
+        if r.get("system"):
+            msgs = [{"role":"system", "content": r["system"]}] + msgs
+        rows.append({"messages": msgs, "images": r["images"]})
+    ds = Dataset.from_list(rows)
+    with tempfile.TemporaryDirectory() as d:
+        ds_path = Path(d) / "doer_vlm_dataset"
+        ds.save_to_disk(str(ds_path))
+        sys.stderr.write("doer-vlm: delegating to strands-mlx vision trainer" + chr(10))
+        result = mlx_vision_trainer(
+            action="train", model=model_id, dataset=str(ds_path),
+            adapter_path=adapter_path, learning_rate=lr, lora_rank=lora_rank,
+            max_steps=iters, batch_size=1, apply_chat_template=True,
+        )
+        if result.get("status") == "success":
+            for c in result.get("content", []):
+                sys.stderr.write(c.get("text", "") + chr(10))
+            sys.stderr.write("doer-vlm: DOER_PROVIDER=mlx-vlm DOER_VLM_ADAPTER=" + adapter_path + " do --img X.png '...'" + chr(10))
+            return 0
+        for c in result.get("content", []):
+            sys.stderr.write("ERR: " + c.get("text", "") + chr(10))
+        return 1
+
+
 def _model():
-    """Build model from provider. Auto-detect: bedrock if AWS creds, else ollama."""
+    """Build model from provider. Auto-detect: mlx-vlm if attachments, else bedrock/mlx/ollama."""
     p = _PROVIDER
+    has_attach = bool(_ATTACH["images"] or _ATTACH["audio"] or _ATTACH["video"])
+    # attachments force mlx-vlm (even if user set other provider)
+    if has_attach:
+        try:
+            __import__("mlx_vlm")
+            if p and p not in ("mlx-vlm",):
+                sys.stderr.write("(doer: attachments present - switching from " + p + " to mlx-vlm)" + chr(10))
+            p = "mlx-vlm"
+        except ImportError:
+            sys.stderr.write("(doer: attachments present but mlx-vlm not installed - falling back)" + chr(10))
     if not p:
         # auto: bedrock if creds present, else mlx on apple silicon if available, else ollama
         if os.environ.get("AWS_BEARER_TOKEN_BEDROCK") or os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE"):
@@ -331,15 +408,44 @@ def _model():
         m = MLXModel(model_id=_MLX_MODEL, adapter_path=adapter)
         tag = f"mlx {_MLX_MODEL}" + (f" +adapter:{adapter}" if adapter else "")
         return m, tag
-    # default: ollama
+    if p == "mlx-vlm":
+        try:
+            from strands_mlx import MLXVisionModel
+        except ImportError:
+            sys.stderr.write("mlx-vlm provider requires: pip install 'doer-cli[mlx]'" + chr(10)); sys.exit(1)
+        adapter = os.path.expanduser(_VLM_ADAPTER) if _VLM_ADAPTER else None
+        # pick best model for the attachment mix (unless user forced DOER_MLX_VLM_MODEL)
+        has_img = bool(_ATTACH["images"])
+        has_aud = bool(_ATTACH["audio"])
+        has_vid = bool(_ATTACH["video"])
+        if "DOER_MLX_VLM_MODEL" in os.environ:
+            chosen = _MLX_VLM_MODEL
+        elif has_aud and (has_img or has_vid):
+            chosen = _MLX_OMNI_MODEL  # needs full omni
+        elif has_aud:
+            chosen = _MLX_AUDIO_MODEL
+        else:
+            chosen = _MLX_VLM_MODEL  # image and/or video
+        m = MLXVisionModel(model_id=chosen, adapter_path=adapter)
+        tag = "mlx-vlm " + chosen + ((" +adapter:" + adapter) if adapter else "")
+        return m, tag
+        # default: ollama
     from strands.models.ollama import OllamaModel
     return OllamaModel(host=_OLLAMA_HOST, model_id=_OLLAMA_MODEL, keep_alive="5m"), f"ollama {_OLLAMA_MODEL} @ {_OLLAMA_HOST}"
+
+
+def _compact_prompt_for_vlm(full_prompt):
+    """VLMs perform best with no system prompt. Return empty string."""
+    return ""
 
 
 def _prompt(model_desc: str) -> str:
     soul = _ctx("SOUL.md")
     agents = _ctx("AGENTS.md")
     parts = [f"env: {sys.platform} | cwd: {Path.cwd()} | model: {model_desc}"]
+    if any(_ATTACH.values()):
+        _bits = [k + "=" + str(len(v)) for k, v in _ATTACH.items() if v]
+        parts.append("# attachments\nuser has attached: " + ", ".join(_bits) + " (see user message content blocks)")
     if soul:   parts.append(f"# SOUL.md\n{soul}")
     if agents: parts.append(f"# AGENTS.md\n{agents}")
     parts.append(f"# recent Q/A (last {_N_DOER})\n{_doer_history(_N_DOER)}")
@@ -351,10 +457,15 @@ def _prompt(model_desc: str) -> str:
 def _agent():
     """Build a fresh agent. Returns (agent, model_desc) to avoid double _model() cost."""
     m, desc = _model()
+    sp = _prompt(desc)
+    # VLM calls: compact prompt + drop shell tool (VLMs have limited tool support + small windows)
+    use_tools = not any(_ATTACH.values())
+    if not use_tools:
+        sp = _compact_prompt_for_vlm(sp)
     kw = dict(
         model=m,
-        tools=[shell],
-        system_prompt=_prompt(desc),
+        tools=[shell] if use_tools else [],
+        system_prompt=sp,
         load_tools_from_directory=True,
         conversation_manager=NullConversationManager(),
     )
@@ -362,16 +473,79 @@ def _agent():
     return Agent(**kw), desc
 
 
-def ask(q):
-    """doer('query')"""
-    a, desc = _agent()
-    r = a(q)
-    _append(q, r, agent=a, model_desc=desc)
-    return r
+def _build_content(q):
+    """Build Strands ContentBlock list for MLXVisionModel.
+
+    Images: native Strands image content block (works everywhere)
+    Audio/video: <audio>PATH</audio> / <video>PATH</video> tags embedded in text,
+                 which MLXVisionModel._extract_media_from_messages() parses via regex.
+    Text query stays first so prompt context comes before media.
+    """
+    import mimetypes
+    # gather valid paths first
+    valid_imgs, valid_aud, valid_vid = [], [], []
+    for img_path in _ATTACH["images"]:
+        p = Path(img_path).expanduser().resolve()
+        if p.exists():
+            valid_imgs.append(p)
+        else:
+            sys.stderr.write("(doer: missing image: " + str(p) + ")" + chr(10))
+    for ap in _ATTACH["audio"]:
+        p = Path(ap).expanduser().resolve()
+        if p.exists():
+            valid_aud.append(p)
+        else:
+            sys.stderr.write("(doer: missing audio: " + str(p) + ")" + chr(10))
+    for vp in _ATTACH["video"]:
+        p = Path(vp).expanduser().resolve()
+        if p.exists():
+            valid_vid.append(p)
+        else:
+            sys.stderr.write("(doer: missing video: " + str(p) + ")" + chr(10))
+
+    # build text: query + <audio>/<video> tags for MLXVisionModel regex parser
+    text = q
+    for ap in valid_aud:
+        text += " <audio>" + str(ap) + "</audio>"
+    for vp in valid_vid:
+        text += " <video>" + str(vp) + "</video>"
+
+    content = [{"text": text}]
+
+    # images as native content blocks (bytes + format)
+    for p in valid_imgs:
+        try:
+            mime, _ = mimetypes.guess_type(str(p))
+            fmt = (mime or "image/png").split("/")[-1]
+            if fmt == "jpg": fmt = "jpeg"  # normalize
+            content.append({"image": {"format": fmt, "source": {"bytes": p.read_bytes()}}})
+        except Exception as e:
+            sys.stderr.write("(doer: image load err " + str(p) + ": " + str(e) + ")" + chr(10))
+    return content
+
+
+def ask(q, images=None, audio=None, video=None):
+    """doer('query', images=[...], audio=[...], video=[...])"""
+    _ATTACH["images"] = list(images or [])
+    _ATTACH["audio"] = list(audio or [])
+    _ATTACH["video"] = list(video or [])
+    try:
+        a, desc = _agent()
+        content = _build_content(q)
+        # any attachment → send content list (image block AND/OR audio/video tags in text)
+        if any(_ATTACH.values()):
+            r = a(content)  # Strands accepts list[ContentBlock] directly
+        else:
+            r = a(q)
+        _append(q, r, agent=a, model_desc=desc,
+                attachments=dict(_ATTACH) if any(_ATTACH.values()) else None)
+        return r
+    finally:
+        _ATTACH["images"] = []; _ATTACH["audio"] = []; _ATTACH["video"] = []
 
 
 class _Callable(sys.modules[__name__].__class__):
-    def __call__(self, q): return ask(q)
+    def __call__(self, q, **kw): return ask(q, **kw)
 sys.modules[__name__].__class__ = _Callable
 
 
@@ -384,22 +558,52 @@ def cli():
         iters = 200
         if len(argv) > 1 and argv[1].isdigit(): iters = int(argv[1])
         sys.exit(train(iters=iters))
+    if argv and argv[0] == "--train-vlm":
+        iters = 300
+        if len(argv) > 1 and argv[1].isdigit(): iters = int(argv[1])
+        sys.exit(train_vlm(iters=iters))
     # --train-status  — show dataset size
     if argv and argv[0] == "--train-status":
         import json
         if not _TRAIN_JSONL.exists():
-            print(f"no training data at {_TRAIN_JSONL}", file=sys.stderr); sys.exit(1)
-        lines = _TRAIN_JSONL.read_text().splitlines()
-        n = len([l for l in lines if l.strip()])
+            print("no training data at " + str(_TRAIN_JSONL), file=sys.stderr); sys.exit(1)
+        lines = [l for l in _TRAIN_JSONL.read_text().splitlines() if l.strip()]
+        n = len(lines); n_text = 0; n_img = 0; n_aud = 0; n_vid = 0
+        for l in lines:
+            try: r = json.loads(l)
+            except: continue
+            if r.get("images"): n_img += 1
+            elif r.get("audio"): n_aud += 1
+            elif r.get("video"): n_vid += 1
+            else: n_text += 1
         sz = _TRAIN_JSONL.stat().st_size
-        print(f"{n} turns | {sz/1024:.1f}KB | {_TRAIN_JSONL}", file=sys.stderr)
+        print(str(n) + " turns | " + str(round(sz/1024,1)) + "KB | " + str(_TRAIN_JSONL), file=sys.stderr)
+        print("  text:" + str(n_text) + "  image:" + str(n_img) + "  audio:" + str(n_aud) + "  video:" + str(n_vid), file=sys.stderr)
         sys.exit(0)
+    imgs, auds, vids = [], [], []
+    rest = []
+    _i = 0
+    while _i < len(argv):
+        _a = argv[_i]
+        if _a in ("--img", "--image") and _i + 1 < len(argv):
+            imgs.append(argv[_i+1]); _i += 2
+        elif _a == "--audio" and _i + 1 < len(argv):
+            auds.append(argv[_i+1]); _i += 2
+        elif _a == "--video" and _i + 1 < len(argv):
+            vids.append(argv[_i+1]); _i += 2
+        else:
+            rest.append(_a); _i += 1
     stdin = "" if sys.stdin.isatty() else sys.stdin.read().strip()
-    args = " ".join(argv).strip()
+    args = " ".join(rest).strip()
     q = "\n\n".join(x for x in [args, stdin] if x)
-    if not q:
+    if not q and not (imgs or auds or vids):
         _, desc = _model()
-        print("usage: doer <query>   |   echo data | doer <query>", file=sys.stderr)
+        print("usage: doer <query>                          # text", file=sys.stderr)
+        print("       echo data | doer <query>              # piped stdin", file=sys.stderr)
+        print("       doer --img X.png <query>              # vision (auto-switches to mlx-vlm)", file=sys.stderr)
+        print("       doer --audio X.wav <query>            # audio", file=sys.stderr)
+        print("       doer --video X.mp4 <query>            # video frames", file=sys.stderr)
+        print("       doer --img a.png --audio b.wav <q>    # omni (auto-picks omni model)", file=sys.stderr)
         print(f"model:    {desc}", file=sys.stderr)
         print(f"history:  {_N_DOER} Q/A pairs from {_HIST}", file=sys.stderr)
         print(f"shell:    {_N_SHELL} cmds from ~/.bash_history + ~/.zsh_history", file=sys.stderr)
@@ -410,11 +614,14 @@ def cli():
         print(f"          DOER_BEDROCK_GUARDRAIL_ID, DOER_BEDROCK_GUARDRAIL_VERSION,", file=sys.stderr)
         print(f"          DOER_ANTHROPIC_BETA (comma-sep), DOER_ADDITIONAL_REQUEST_FIELDS (JSON),", file=sys.stderr)
         print(f"          DOER_HISTORY, DOER_SHELL_HISTORY,", file=sys.stderr)
-        print(f"          DOER_MLX_MODEL, DOER_ADAPTER  (mlx provider — Apple Silicon)", file=sys.stderr)
-        print(f"train:    do --train [iters]   (LoRA on ~/.doer_training.jsonl → ~/.doer_adapter)", file=sys.stderr)
-        print(f"          do --train-status    (show dataset size)", file=sys.stderr)
+        print(f"          DOER_MLX_MODEL, DOER_ADAPTER,  DOER_MLX_VLM_MODEL, DOER_MLX_AUDIO_MODEL, DOER_MLX_OMNI_MODEL, DOER_VLM_ADAPTER", file=sys.stderr)
+        print(f"train:    doer --train [iters]        (text LoRA → ~/.doer_adapter)", file=sys.stderr)
+        print(f"          doer --train-vlm [iters]    (VLM LoRA on multi-modal records → ~/.doer_vlm_adapter)", file=sys.stderr)
+        print(f"          doer --train-status         (dataset size + text/image/audio/video breakdown)", file=sys.stderr)
         sys.exit(1)
-    print(str(ask(q)).strip())
+    if not q and (imgs or auds or vids):
+        q = "describe / analyze the attached media"
+    print(str(ask(q, images=imgs, audio=auds, video=vids)).strip())
 
 
 if __name__ == "__main__":

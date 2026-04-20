@@ -20,6 +20,8 @@ Every call, the agent reads your shell **like a person reads a room**.
 
     Last N Q/A pairs, zsh-compatible. Tuned via `DOER_HISTORY`.
 
+    *Sibling file:* `~/.doer_training.jsonl` stores **full** turns (system + messages + tools) for self-training — see [Train](train.md).
+
 -   **`~/.bash_history` + `~/.zsh_history`**
 
     Merged chronologically. Tuned via `DOER_SHELL_HISTORY`.
@@ -126,7 +128,9 @@ Smaller = faster + cheaper. Bigger = more context. Tune per machine.
 To reset any session memory:
 
 ```bash
-rm ~/.doer_history   # clears Q/A log
+rm ~/.doer_history          # clears Q/A log (prompt context)
+rm ~/.doer_training.jsonl   # clears training corpus
+rm -rf ~/.doer_adapter      # clears trained LoRA adapter
 ```
 
 That's it. No app state. No database. Nothing to vacuum.

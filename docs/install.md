@@ -49,11 +49,12 @@ Both resolve to the same entry point.
 | ----------------- | ----------------------------------------- |
 | Python **3.10+**                            | only for `pip`/`pipx` paths                       |
 | [Ollama](https://ollama.com) *or* AWS creds | one of the two — `doer` auto-detects              |
-| A model                                     | `ollama pull qwen3:1.7b` *or* Bedrock Claude access |
+| A model                                     | `ollama pull qwen3:1.7b` *or* Bedrock Claude access *or* MLX base (auto-download) |
+| Apple Silicon *(for MLX only)*              | M1/M2/M3/M4 Mac — opt-in `[mlx]` extra           |
 
 ## pick a backend
 
-`doer` auto-detects at runtime: **Bedrock if AWS creds exist, else Ollama.** Override with `DOER_PROVIDER`.
+`doer` auto-detects at runtime: **Bedrock if AWS creds exist, else MLX if on Apple Silicon with `[mlx]` installed, else Ollama.** Override with `DOER_PROVIDER=bedrock|mlx|ollama`.
 
 ### bedrock (cloud, default)
 
@@ -115,6 +116,29 @@ Persist your choice:
 echo 'export DOER_PROVIDER=ollama' >> ~/.zshrc
 echo 'export DOER_MODEL=qwen3:4b'  >> ~/.zshrc
 ```
+
+
+### mlx (Apple Silicon, opt-in)
+
+For on-device inference with a LoRA adapter you trained yourself. Requires Apple Silicon (M-series).
+
+```bash
+pip install 'doer-cli[mlx]'        # adds strands-mlx + mlx-lm (~500MB)
+
+# first run downloads the base model from HF
+DOER_PROVIDER=mlx do "reply: ok"
+# → ok
+
+# hot-swap your trained self (see: Train on yourself)
+DOER_PROVIDER=mlx DOER_ADAPTER=~/.doer_adapter do "..."
+```
+
+Change base model:
+```bash
+DOER_MLX_MODEL=mlx-community/Qwen3-4B-4bit do "..."
+```
+
+See [**Train on yourself**](train.md) for the full collect → train → swap loop.
 
 ## troubleshooting
 
