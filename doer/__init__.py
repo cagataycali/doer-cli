@@ -512,7 +512,10 @@ def train_vlm(iters: int = 300, lr: float = 1e-5, adapter_path: str = "",
     """VLM LoRA on multi-modal records. Delegates to strands-mlx vision trainer."""
     try:
         from strands_mlx.tools.mlx_vision_trainer import mlx_vision_trainer
-        from datasets import Dataset
+        try:
+            from datasets import Dataset
+        except ImportError:
+            sys.exit("vlm training requires: pip install 'doer-cli[vlm]'")
     except ImportError as e:
         _warn(f"vlm training requires: pip install 'doer-cli[mlx]' datasets ({e})"); return 1
     if not TRAIN.exists():

@@ -24,7 +24,8 @@ dependencies = [
 
 [project.optional-dependencies]
 mlx = ["strands-mlx>=0.2.6"]
-hf = ["huggingface_hub>=0.25.0"]
+vlm = ["strands-mlx>=0.2.6", "mlx-vlm>=0.1.0", "datasets>=2.14.0"]
+hf  = ["huggingface_hub>=0.25.0"]
 
 [project.urls]
 Homepage = "https://github.com/cagataycali/doer-cli"
