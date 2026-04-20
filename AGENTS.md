@@ -162,3 +162,58 @@ git tag v0.2.0 && git push --tags
 - add subcommands — `doer <query>` is the only interface
 - add config files — env vars are overkill for this tool
 - wrap in docker — it's 100MB, just `pip install doer-cli`
+
+## export (training dataset generation)
+
+Dump your `~/.doer_history` as a JSONL dataset, ready for fine-tuning.
+Zero new deps — uses stdlib `json` and the same history format doer already writes.
+
+```bash
+# Qwen / ShareGPT format → stdout (default)
+doer --export > train.jsonl
+
+# specific format + file
+doer --export sharegpt --out train.jsonl
+doer --export chatml   --out train.jsonl     # OpenAI / ChatML messages
+doer --export alpaca   --out train.jsonl     # {instruction, input, output}
+doer --export openai   --out train.jsonl     # same as chatml
+
+# strip the (huge, ~19KB) live system prompt if you want a lean dataset
+doer --export --no-system --out lean.jsonl
+```
+
+Each record = one `(Q, A)` pair from `~/.doer_history`, with doer's live
+`_prompt()` as the `system` message (unless `--no-system`). That means the
+dataset captures **the full context doer sees** — `SOUL.md` + `AGENTS.md` +
+recent Q/A + shell history + full source — so a model trained on it can
+inherit doer's behavior end-to-end.
+
+### train a local adapter (mlx, no extra deps on doer itself)
+
+```bash
+# 1) export
+doer --export --out /tmp/train.jsonl
+
+# 2) fine-tune with mlx-lm (install separately)
+pip install mlx-lm
+mkdir -p /tmp/doer-mlx && cp /tmp/train.jsonl /tmp/doer-mlx/train.jsonl
+# mlx-lm expects train.jsonl + valid.jsonl in the same dir
+head -n -2 /tmp/doer-mlx/train.jsonl > /tmp/doer-mlx/train.jsonl.tmp
+tail -n 2  /tmp/doer-mlx/train.jsonl > /tmp/doer-mlx/valid.jsonl
+mv /tmp/doer-mlx/train.jsonl.tmp /tmp/doer-mlx/train.jsonl
+
+python -m mlx_lm lora \
+  --model mlx-community/Qwen2.5-1.5B-Instruct-4bit \
+  --data /tmp/doer-mlx \
+  --iters 200 \
+  --adapter-path /tmp/doer-adapter
+
+# 3) use the adapter
+python -m mlx_lm generate \
+  --model mlx-community/Qwen2.5-1.5B-Instruct-4bit \
+  --adapter-path /tmp/doer-adapter \
+  --prompt "what is doer?"
+```
+
+Keep building the dataset just by **using doer**. Every `do "..."` call
+appends a fresh `(q, a)` pair. Periodically `--export` → retrain → swap adapter.

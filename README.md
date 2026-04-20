@@ -48,6 +48,22 @@ echo '{"a":1}' | do "to yaml"
 curl -s api.io | do "summarize" | tee out.md
 ```
 
+## export (train your own doer)
+
+Every call appends to `~/.doer_history`. Dump the lot as a JSONL training
+dataset — Qwen/ShareGPT by default, ready for `mlx-lm lora` or anything else.
+
+```bash
+do --export > train.jsonl                        # sharegpt → stdout
+do --export chatml --out train.jsonl             # chatml/openai messages
+do --export alpaca --out train.jsonl             # instruction/input/output
+do --export --no-system --out lean.jsonl         # skip the system prompt
+```
+
+Each record captures doer's **full live context** (SOUL + AGENTS + history +
+shell + source) as the system message — so a fine-tune inherits doer's
+behavior, not just its wording. See [`AGENTS.md`](AGENTS.md#export-training-dataset-generation) for the full mlx recipe.
+
 ## what it is
 
 ```python

@@ -109,6 +109,56 @@ def _append(q: str, a: str):
     except Exception: pass
 
 
+def _pairs():
+    """Parse ~/.doer_history into [(q, a), ...] pairs (chronological)."""
+    if not _HIST.exists(): return []
+    out, q = [], None
+    for ln in _HIST.read_text(errors="ignore").splitlines():
+        if ":0;# doer_q:" in ln: q = ln.split(":0;# doer_q:", 1)[1].strip()
+        elif ":0;# doer_a:" in ln and q is not None:
+            a = ln.split(":0;# doer_a:", 1)[1].strip()
+            if q and a: out.append((q, a))
+            q = None
+    return out
+
+
+def export(fmt: str = "sharegpt", out=None, with_system: bool = True):
+    """Export ~/.doer_history as a training dataset (JSONL).
+
+    fmt: 'sharegpt' (Qwen/Llama default) | 'chatml' | 'alpaca' | 'openai'
+    out: file path or None (stdout). with_system: include doer's live prompt.
+    """
+    import json
+    if fmt not in ("sharegpt", "chatml", "alpaca", "openai"):
+        sys.stderr.write(f"unknown fmt: {fmt} (use sharegpt|chatml|alpaca|openai)\n"); return 0
+    pairs = _pairs()
+    if not pairs:
+        sys.stderr.write("(no Q/A pairs in ~/.doer_history)\n"); return 0
+    _, desc = _model()
+    sysp = _prompt(desc) if with_system else None
+    fh = open(out, "w", encoding="utf-8") if out else sys.stdout
+    try:
+        for q, a in pairs:
+            if fmt == "sharegpt":
+                conv = []
+                if sysp: conv.append({"from": "system", "value": sysp})
+                conv += [{"from": "human", "value": q}, {"from": "gpt", "value": a}]
+                rec = {"conversations": conv}
+            elif fmt in ("chatml", "openai"):
+                msgs = []
+                if sysp: msgs.append({"role": "system", "content": sysp})
+                msgs += [{"role": "user", "content": q}, {"role": "assistant", "content": a}]
+                rec = {"messages": msgs}
+            else:  # alpaca
+                rec = {"instruction": q, "input": "", "output": a}
+                if sysp: rec["system"] = sysp
+            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    finally:
+        if out: fh.close()
+    sys.stderr.write(f"exported {len(pairs)} pairs → {out or 'stdout'} ({fmt})\n")
+    return len(pairs)
+
+
 def _model():
     """Build model from provider. Auto-detect: bedrock if AWS creds, else ollama."""
     p = _PROVIDER
@@ -197,12 +247,32 @@ sys.modules[__name__].__class__ = _Callable
 def cli():
     global _PIPED
     _PIPED = True
+    argv = sys.argv[1:]
+    # --export [fmt] [--out PATH] [--no-system]  — dump ~/.doer_history as JSONL training dataset
+    if argv and argv[0] in ("--export", "-x"):
+        fmt = "sharegpt"
+        out = None
+        with_system = True
+        i = 1
+        while i < len(argv):
+            a = argv[i]
+            if a in ("--out", "-o") and i + 1 < len(argv): out = argv[i + 1]; i += 1
+            elif a == "--no-system": with_system = False
+            elif a in ("-h", "--help"):
+                print("usage: doer --export [sharegpt|chatml|alpaca|openai] [--out path.jsonl] [--no-system]", file=sys.stderr)
+                print("  default: sharegpt → stdout, system prompt included", file=sys.stderr)
+                sys.exit(0)
+            elif not a.startswith("-"): fmt = a  # positional: format
+            i += 1
+        n = export(fmt=fmt, out=out, with_system=with_system)
+        sys.exit(0 if n else 1)
     stdin = "" if sys.stdin.isatty() else sys.stdin.read().strip()
-    args = " ".join(sys.argv[1:]).strip()
+    args = " ".join(argv).strip()
     q = "\n\n".join(x for x in [args, stdin] if x)
     if not q:
         _, desc = _model()
         print("usage: doer <query>   |   echo data | doer <query>", file=sys.stderr)
+        print("       doer --export [sharegpt|chatml|alpaca|openai] [--out path] [--no-system]", file=sys.stderr)
         print(f"model:    {desc}", file=sys.stderr)
         print(f"history:  {_N_DOER} Q/A pairs from {_HIST}", file=sys.stderr)
         print(f"shell:    {_N_SHELL} cmds from ~/.bash_history + ~/.zsh_history", file=sys.stderr)
