@@ -87,6 +87,11 @@ Built fresh on every call by `_build_prompt()`:
 | `DOER_LOAD_TOOLS_FROM_DIR`       | `1` (on)                                          | hot-reload `./tools/*.py` (disable for threading: `0`) |
 | `DOER_HF_REPO`                   | `<hf-user>/doer-training`                         | target HF dataset for upload  |
 | `HF_TOKEN`                       | *(fallback: `~/.cache/huggingface/token`)*        | HuggingFace auth token        |
+| `DOER_GR00T_HOST`                | `localhost`                                       | Isaac GR00T policy-server host (ZMQ)  |
+| `DOER_GR00T_PORT`                | `5555`                                            | GR00T policy-server port              |
+| `DOER_GR00T_EMBODIMENT`          | `new_embodiment`                                  | GR00T embodiment tag                  |
+| `DOER_GR00T_TIMEOUT_MS`          | `15000`                                           | GR00T REQ/REP timeout (ms)            |
+| `DOER_GR00T_API_TOKEN`           | *(unset)*                                         | optional server auth token            |
 
 ### provider auto-detect
 
@@ -358,6 +363,85 @@ DOER_PROVIDER=transformers \
 # or via mlx (after converting: mlx_lm.convert --hf-path <repo>)
 DOER_PROVIDER=mlx DOER_MLX_MODEL=<mlx-repo> do "..."
 ```
+
+
+## Isaac GR00T integration (v0.8.0+)
+
+Doer ships an opt-in ZMQ client for [Isaac GR00T](https://github.com/NVIDIA/Isaac-GR00T)'s
+policy server. Two usage modes, both unix-flavored:
+
+```bash
+pip install 'doer-cli[gr00t]'   # adds pyzmq + msgpack + numpy + pillow
+```
+
+### Mode A — Brain mode (LLM calls `gr00t_action` as a tool)
+
+```bash
+export DOER_GR00T_HOST=thor.local
+do "capture webcam to /tmp/cam.jpg, then ask gr00t to stack the red block on the blue block"
+# LLM plans:
+#   1. shell("ffmpeg -f v4l2 -i /dev/video0 -frames 1 /tmp/cam.jpg")
+#   2. gr00t_action('{"video.webcam":"/tmp/cam.jpg","state.joint_pos":[...]}',
+#                   instruction="stack red on blue")
+#   3. summarizes action for the user (or executes via shell)
+```
+
+### Mode B — Pipe mode (LLM bypass, raw ZMQ passthrough)
+
+```bash
+# One-shot
+echo '{"state.joint_pos":[0,0,0,0,0,0,0]}' | doer --gr00t "pick up cube"
+# → {"action": {...}, "info": {"inference_time_ms": 42}}
+
+# Inside a control loop
+python capture_obs.py | doer --gr00t "sort blocks" | python execute_action.py
+```
+
+### Helper subcommands
+
+```bash
+doer --gr00t-ping                       # health-check server
+doer --gr00t-schema                     # fetch get_modality_config (JSON)
+doer --gr00t-reset                      # reset an episode
+doer --gr00t-serve <ckpt> \             # auto-spawn server on this host
+  --embodiment-tag new_embodiment \
+  --gr00t-host 0.0.0.0 --gr00t-port 5555
+```
+
+All gr00t subcommands accept `--gr00t-host`, `--gr00t-port`, `--embodiment-tag`,
+`--gr00t-timeout-ms`, `--gr00t-token` flags which just mutate the `DOER_GR00T_*`
+env vars for that one invocation.
+
+### protocol summary (for LLM self-awareness)
+
+- REQ/REP over ZMQ, msgpack-framed.
+- Endpoints: `ping`, `get_action`, `reset`, `get_modality_config`, `kill`.
+- `get_action` input: `{observation: {...}, options: null}`.
+  `observation` keys use GR00T schema: `video.<cam>` (HxWx3 uint8 ndarray, or
+  filepath string — doer auto-loads via PIL), `state.<name>` (float32 array),
+  `annotation.human.action.task_description` (list[str]).
+- `get_action` output: tuple `[action_dict, info_dict]`. Returned to caller as
+  `{"action": {...}, "info": {...}}` JSON.
+
+### starting the server (out-of-band, your responsibility)
+
+```bash
+# on the CUDA box:
+python -m gr00t.eval.run_gr00t_server \
+  --model-path /path/to/gr00t-n1.7-ckpt \
+  --embodiment-tag new_embodiment \
+  --host 0.0.0.0 --port 5555
+
+# or let doer do it:
+doer --gr00t-serve /path/to/gr00t-n1.7-ckpt --embodiment-tag new_embodiment
+```
+
+### training bridge
+
+Records from `gr00t_action` tool calls land in `~/.doer_training.jsonl` like any
+other tool use (native `<tool_call>`/`<tool_result>` tokens via the
+strands→openai translator). This means `doer --train` will learn when and how
+to call `gr00t_action` from observed demonstrations — no extra trainer code.
 
 
 ## do not
