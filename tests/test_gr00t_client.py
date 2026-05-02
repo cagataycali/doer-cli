@@ -99,17 +99,44 @@ class MockGR00TServer:
             elif endpoint == "get_action":
                 # echo joint_pos (batch=1, T=1) for determinism
                 obs = data.get("observation", {})
-                js = obs.get("state.joint_pos")
+
+                # Handle both flat and nested observation formats
+                # (client _hydrate restructures flat → nested)
+                state = obs.get("state", {})
+                if isinstance(state, dict):
+                    js = state.get("joint_pos")
+                else:
+                    js = obs.get("state.joint_pos")
                 if isinstance(js, np.ndarray):
                     arr = js.astype(np.float32).reshape(1, -1)
                 else:
                     arr = np.zeros((1, 7), dtype=np.float32)
                 action = {"action.joint_pos": arr}
+
+                # Extract instruction from nested or flat format
+                saw = ""
+                lang = obs.get("language", {})
+                if isinstance(lang, dict):
+                    # Nested: language.annotation.human.task_description
+                    for lk, lv in lang.items():
+                        if "task_description" in lk:
+                            if isinstance(lv, list):
+                                # Could be [[str]] or [str]
+                                val = lv[0] if lv else ""
+                                if isinstance(val, list):
+                                    saw = val[0] if val else ""
+                                else:
+                                    saw = val
+                            break
+                if not saw:
+                    # Flat: annotation.human.action.task_description
+                    flat_td = obs.get("annotation.human.action.task_description", [""])
+                    if isinstance(flat_td, list) and flat_td:
+                        saw = flat_td[0] if isinstance(flat_td[0], str) else ""
+
                 info = {
                     "inference_time_ms": 1.0,
-                    "saw_instruction": obs.get(
-                        "annotation.human.action.task_description", [""]
-                    )[0],
+                    "saw_instruction": saw,
                 }
                 resp = [action, info]
             else:

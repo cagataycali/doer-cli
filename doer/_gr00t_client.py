@@ -74,22 +74,99 @@ def _maybe_load_media(val: Any) -> Any:
 def _hydrate(obs: dict) -> dict:
     """Normalize observation dict values for GR00T policy server.
 
-    - Lists of numbers → np.ndarray(float32)
-    - File-path strings → loaded image ndarray
-    - Everything else → passthrough
+    Handles two input formats:
+    1. **Flat keys** (pipe-mode convenience):
+       ``{"state.left_arm": [0.1,...], "video.ego_view": "/tmp/cam.jpg"}``
+       → restructured into nested ``{"state": {"left_arm": arr}, "video": {"ego_view": arr}}``
+    2. **Nested dicts** (direct API):
+       ``{"video": {"ego_view": arr}, "state": {...}, "language": {...}}``
+       → values normalized in-place (lists→ndarray, paths→image).
+
+    The GR00T PolicyServer's ``check_observation`` requires the nested format
+    with top-level ``video``, ``state``, and ``language`` keys.
+
+    Additional transforms:
+    - Lists of numbers → ``np.ndarray(float32)``
+    - File-path strings pointing to images → loaded ``np.uint8`` ndarray with batch dim
+    - ``annotation.human.*`` flat keys → nested under ``"language"``
+    - State arrays auto-wrapped to ``(1, 1, D)`` if 1-D
+    - Video arrays auto-wrapped to ``(1, T, H, W, C)`` if missing batch dim
     """
-    out: dict = {}
+    # Detect if keys are flat-style (contain dots like "state.left_arm")
+    has_flat_keys = any("." in k for k in obs if k not in ("video", "state", "language"))
+    has_nested_keys = any(k in ("video", "state", "language") and isinstance(obs[k], dict) for k in obs)
+
+    if has_nested_keys and not has_flat_keys:
+        # Already nested — just normalize values within each modality
+        out: dict = {}
+        for modality, sub in obs.items():
+            if isinstance(sub, dict):
+                out[modality] = {}
+                for k, v in sub.items():
+                    out[modality][k] = _normalize_value(k, v, modality)
+            else:
+                out[modality] = sub
+        return out
+
+    # Flat keys → restructure into nested format
+    nested: dict = {"video": {}, "state": {}, "language": {}}
+    extra: dict = {}
+
     for k, v in obs.items():
-        if isinstance(v, list):
-            try:
-                out[k] = np.asarray(v, dtype=np.float32)
-            except (TypeError, ValueError):
-                out[k] = v
-        elif isinstance(v, str):
-            out[k] = _maybe_load_media(v)
+        if k.startswith("video."):
+            subkey = k[len("video."):]
+            nested["video"][subkey] = _normalize_value(subkey, v, "video")
+        elif k.startswith("state."):
+            subkey = k[len("state."):]
+            nested["state"][subkey] = _normalize_value(subkey, v, "state")
+        elif k.startswith("annotation.") or k.startswith("language."):
+            # Language keys like "annotation.human.task_description"
+            subkey = k[len("language."):] if k.startswith("language.") else k
+            nested["language"][subkey] = v if isinstance(v, list) else [v]
+        elif k in ("video", "state", "language"):
+            # Top-level modality passed as non-dict (shouldn't happen, but handle)
+            nested[k] = v
         else:
-            out[k] = v
-    return out
+            extra[k] = v
+
+    # Merge any extra keys into the appropriate modality or keep at top level
+    for k, v in extra.items():
+        nested[k] = v
+
+    # Remove empty modalities to avoid confusing the server
+    return {k: v for k, v in nested.items() if v}
+
+
+def _normalize_value(key: str, v: Any, modality: str) -> Any:
+    """Normalize a single observation value based on its modality."""
+    if isinstance(v, np.ndarray):
+        # Already an ndarray — just ensure correct shape
+        if modality == "state" and v.ndim == 1:
+            v = v.reshape(1, 1, -1)  # (D,) → (1, 1, D)
+        elif modality == "state" and v.ndim == 2:
+            v = v.reshape(1, *v.shape)  # (T, D) → (1, T, D)
+        elif modality == "video" and v.ndim == 4:
+            v = v[None, ...]  # (T, H, W, C) → (1, T, H, W, C)
+        return v
+    elif isinstance(v, list):
+        try:
+            arr = np.asarray(v, dtype=np.float32)
+            if modality == "state":
+                if arr.ndim == 1:
+                    arr = arr.reshape(1, 1, -1)
+                elif arr.ndim == 2:
+                    arr = arr.reshape(1, *arr.shape)
+            return arr
+        except (TypeError, ValueError):
+            return v
+    elif isinstance(v, str):
+        loaded = _maybe_load_media(v)
+        if isinstance(loaded, np.ndarray) and modality == "video":
+            # _load_image returns (1, H, W, 3) — need (1, T, H, W, 3)
+            if loaded.ndim == 4:
+                loaded = loaded[:, None, ...]  # (1, H, W, 3) → (1, 1, H, W, 3)
+        return loaded
+    return v
 
 
 # ─── REQ/REP client (per-endpoint singleton cache) ──────────────────────────
@@ -190,9 +267,15 @@ def call_gr00t(observation_json: str, instruction: str = "") -> str:
         obs = {}
 
     if instruction:
-        obs.setdefault(
-            "annotation.human.action.task_description", [instruction]
-        )
+        # Support both flat and nested observation formats
+        if "language" in obs and isinstance(obs["language"], dict):
+            obs["language"].setdefault(
+                "annotation.human.task_description", [[instruction]]
+            )
+        else:
+            obs.setdefault(
+                "annotation.human.action.task_description", [instruction]
+            )
 
     obs = _hydrate(obs)
     client = _Client.get()
