@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "doer-cli"
-version = "0.7.1"
+version = "0.8.0"
 description = "doer — one-file pipe-native agent. strands-agents + ollama only."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,6 +26,17 @@ dependencies = [
 mlx = ["strands-mlx>=0.2.6"]
 vlm = ["strands-mlx>=0.2.6", "mlx-vlm>=0.1.0", "datasets>=2.14.0"]
 hf  = ["huggingface_hub>=0.25.0"]
+gr00t = ["pyzmq>=25.0", "msgpack>=1.0", "numpy>=1.24", "pillow>=10.0"]
+all = [
+    "strands-mlx>=0.2.6",
+    "mlx-vlm>=0.1.0",
+    "datasets>=2.14.0",
+    "huggingface_hub>=0.25.0",
+    "pyzmq>=25.0",
+    "msgpack>=1.0",
+    "numpy>=1.24",
+    "pillow>=10.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/cagataycali/doer-cli"

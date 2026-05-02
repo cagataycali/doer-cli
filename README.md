@@ -32,6 +32,7 @@ pip install doer-cli
 pip install 'doer-cli[mlx]'   # local inference + LoRA training (Apple Silicon)
 pip install 'doer-cli[vlm]'   # vision/audio/video + VLM LoRA
 pip install 'doer-cli[hf]'    # huggingface dataset upload
+pip install 'doer-cli[gr00t]' # Isaac GR00T policy-server client (ZMQ)
 pip install 'doer-cli[all]'   # everything
 ```
 
@@ -247,6 +248,39 @@ hf download cagataydev/doer-training --repo-type dataset --local-dir /tmp/d
 cp /tmp/d/data/train.jsonl ~/.doer_training.jsonl
 do --train 200
 ```
+
+## robotics: Isaac GR00T (v0.8.0+)
+
+`doer` speaks the [Isaac GR00T](https://github.com/NVIDIA/Isaac-GR00T) policy-server protocol (ZMQ REQ/REP, msgpack) natively. Use it as the **brain** that plans robot actions, or as a **pipe** that converts observation JSON into action JSON — no LLM, no tokens, just `stdin → action`.
+
+```bash
+pip install 'doer-cli[gr00t]'   # adds pyzmq + msgpack + numpy + pillow
+```
+
+**pipe mode** — raw ZMQ client, LLM bypass:
+
+```bash
+echo '{"state.joint_pos":[0,0,0,0,0,0,0]}' | doer --gr00t "pick up cube"
+# → {"action":{"action.joint_pos":[[0.01,...]]}, "info":{"inference_time_ms":42}}
+```
+
+**brain mode** — LLM calls `gr00t_action` as a tool:
+
+```bash
+export DOER_GR00T_HOST=thor.local
+do "snap /tmp/cam.jpg with libcamera-still, then tell gr00t to stack red on blue"
+```
+
+**auto-spawn the server** (on a CUDA box):
+
+```bash
+doer --gr00t-serve /path/to/gr00t-n1.7-ckpt --embodiment-tag new_embodiment
+```
+
+Helpers: `doer --gr00t-ping` · `doer --gr00t-schema` · `doer --gr00t-reset`. Env
+knobs: `DOER_GR00T_HOST / PORT / EMBODIMENT / TIMEOUT_MS / API_TOKEN`. Every
+`gr00t_action` call lands in `~/.doer_training.jsonl` as a native tool-use
+record — `doer --train` learns when to ask the policy server from the log.
 
 ## philosophy
 

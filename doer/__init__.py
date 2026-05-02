@@ -55,6 +55,13 @@ N_SHELL        = int(ENV("DOER_SHELL_HISTORY", "20"))
 DEBUG          = bool(ENV("DOER_DEBUG"))
 LOAD_TOOLS_DIR = ENV("DOER_LOAD_TOOLS_FROM_DIR", "1").lower() not in ("0", "false", "no", "off", "")
 
+# Isaac GR00T ZMQ policy-server client (optional extras: pyzmq, msgpack, numpy, pillow)
+GR00T_HOST       = ENV("DOER_GR00T_HOST", "localhost")
+GR00T_PORT       = int(ENV("DOER_GR00T_PORT", "5555"))
+GR00T_EMBODIMENT = ENV("DOER_GR00T_EMBODIMENT", "new_embodiment")
+GR00T_TIMEOUT_MS = int(ENV("DOER_GR00T_TIMEOUT_MS", "15000"))
+GR00T_API_TOKEN  = ENV("DOER_GR00T_API_TOKEN")
+
 # per-call attachment buffer (reset after each ask)
 _ATTACH: dict[str, list[str]] = {"images": [], "audio": [], "video": []}
 
@@ -76,6 +83,42 @@ def shell(cmd: str, timeout: int = 60) -> str:
         return ((r.stdout or "") + (r.stderr or "")).strip() or f"(exit {r.returncode})"
     except subprocess.TimeoutExpired:
         return f"(timeout {timeout}s)"
+    except Exception as e:
+        return f"(err: {e})"
+
+
+@tool
+def gr00t_action(observation_json: str, instruction: str = "") -> str:
+    """Query an Isaac GR00T policy server (ZMQ REQ/REP) for a robot action.
+
+    Server connection is configured via env vars:
+      DOER_GR00T_HOST (default: localhost)
+      DOER_GR00T_PORT (default: 5555)
+      DOER_GR00T_TIMEOUT_MS (default: 15000)
+      DOER_GR00T_API_TOKEN (optional)
+
+    Start a server with: `doer --gr00t-serve <model-path>` on a CUDA host,
+    or manually: `python -m gr00t.eval.run_gr00t_server --model-path ...`.
+
+    Args:
+        observation_json: JSON string of observation dict. GR00T schema keys:
+            - 'video.<cam>': path to jpg/png (auto-loaded as ndarray) OR list
+            - 'state.<name>': list of floats (joint positions, eef pose, ...)
+            - 'annotation.human.action.task_description': [str] (or use
+              `instruction` arg).
+            Pass "{}" for a stateless ping-like call with just an instruction.
+        instruction: Natural-language task. Injected as
+            'annotation.human.action.task_description' if not already present.
+
+    Returns:
+        JSON string: {"action": {...}, "info": {...}}
+        On error: "(err: <message>)" (tool-safe, won't crash the agent).
+    """
+    try:
+        from doer._gr00t_client import call_gr00t
+        return call_gr00t(observation_json, instruction)
+    except ImportError:
+        return "(err: gr00t extras not installed — pip install 'doer-cli[gr00t]')"
     except Exception as e:
         return f"(err: {e})"
 
@@ -357,9 +400,12 @@ def _agent() -> tuple[Agent, str]:
     """Fresh agent per call. Null conversation manager, no state."""
     m, desc = _model()
     use_tools = not any(_ATTACH.values())  # VLMs: no tools, compact prompt
+    # gr00t_action is included unconditionally — its tool_spec is cheap and
+    # the impl lazy-imports pyzmq/msgpack/numpy only when actually invoked.
+    tool_list = [shell, gr00t_action] if use_tools else []
     kwargs: dict[str, Any] = {
         "model": m,
-        "tools": [shell] if use_tools else [],
+        "tools": tool_list,
         "system_prompt": _build_prompt(desc) if use_tools else _compact_for_vlm(),
         "load_tools_from_directory": LOAD_TOOLS_DIR,
         "conversation_manager": NullConversationManager(),
@@ -692,6 +738,16 @@ def _print_usage() -> None:
         "          doer --hf-jobs text            (cloud text LoRA via HF Jobs)",
         "          doer --hf-jobs vlm             (cloud VLM LoRA via HF Jobs)",
         "          doer --hf-jobs omni            (cloud omni LoRA via HF Jobs)",
+        "gr00t:    doer --gr00t <task>              (pipe: stdin=obs JSON → stdout=action JSON)",
+        "          doer --gr00t-ping                (health-check policy server)",
+        "          doer --gr00t-schema              (fetch observation/action schema)",
+        "          doer --gr00t-reset               (reset episode on server)",
+        "          doer --gr00t-serve <model-path>  (auto-spawn server on this host)",
+        "          flags: --gr00t-host H --gr00t-port P --embodiment-tag T",
+        "                 --gr00t-timeout-ms MS --gr00t-token TOKEN",
+        "          env:   DOER_GR00T_HOST, DOER_GR00T_PORT, DOER_GR00T_EMBODIMENT,",
+        "                 DOER_GR00T_TIMEOUT_MS, DOER_GR00T_API_TOKEN",
+        "          install: pip install 'doer-cli[gr00t]'",
     ]
     for l in lines: print(l, file=sys.stderr)
 
@@ -718,6 +774,33 @@ def _hf_jobs(argv: list) -> int:
     return subprocess.call([launcher] + argv)
 
 
+def _apply_gr00t_flags(argv: list[str]) -> list[str]:
+    """Consume --gr00t-host/-port/-timeout/-token/-embodiment flags from argv.
+
+    Mutates `os.environ` so downstream client picks them up, returns the
+    remaining positional args.
+    """
+    flag_env = {
+        "--gr00t-host": "DOER_GR00T_HOST",
+        "--gr00t-port": "DOER_GR00T_PORT",
+        "--gr00t-timeout-ms": "DOER_GR00T_TIMEOUT_MS",
+        "--gr00t-timeout": "DOER_GR00T_TIMEOUT_MS",
+        "--gr00t-token": "DOER_GR00T_API_TOKEN",
+        "--gr00t-api-token": "DOER_GR00T_API_TOKEN",
+        "--embodiment-tag": "DOER_GR00T_EMBODIMENT",
+        "--gr00t-embodiment": "DOER_GR00T_EMBODIMENT",
+    }
+    out: list[str] = []
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a in flag_env and i + 1 < len(argv):
+            os.environ[flag_env[a]] = argv[i + 1]; i += 2
+        else:
+            out.append(a); i += 1
+    return out
+
+
 def cli() -> None:
     global PIPED
     PIPED = True
@@ -739,8 +822,103 @@ def cli() -> None:
             sys.exit(_train_status())
         if head == "--hf-jobs":
             sys.exit(_hf_jobs(argv[1:]))
+        # ─── gr00t fast-path subcommands ──────────────────────────────────
+        if head == "--gr00t-ping":
+            _apply_gr00t_flags(argv[1:])
+            try:
+                from doer._gr00t_client import ping
+            except ImportError as e:
+                _warn(f"gr00t extras missing: {e}"); sys.exit(2)
+            sys.exit(0 if ping() else 1)
+        if head == "--gr00t-schema":
+            _apply_gr00t_flags(argv[1:])
+            try:
+                from doer._gr00t_client import get_modality_config
+            except ImportError as e:
+                _warn(f"gr00t extras missing: {e}"); sys.exit(2)
+            try:
+                print(get_modality_config()); sys.exit(0)
+            except Exception as e:
+                _warn(f"gr00t schema error: {e}"); sys.exit(1)
+        if head == "--gr00t-reset":
+            _apply_gr00t_flags(argv[1:])
+            try:
+                from doer._gr00t_client import reset
+            except ImportError as e:
+                _warn(f"gr00t extras missing: {e}"); sys.exit(2)
+            try:
+                print(reset()); sys.exit(0)
+            except Exception as e:
+                _warn(f"gr00t reset error: {e}"); sys.exit(1)
+        if head == "--gr00t-serve":
+            # Mode: auto-spawn gr00t policy server on this host.
+            # Syntax: doer --gr00t-serve <model-path> [--embodiment-tag <t>]
+            #                                        [--gr00t-host 0.0.0.0] [--gr00t-port 5555]
+            rest_srv = list(argv[1:])
+            model_path = None
+            srv_host, srv_port = "0.0.0.0", GR00T_PORT
+            embodiment = GR00T_EMBODIMENT
+            wait = True
+            i = 0
+            while i < len(rest_srv):
+                a = rest_srv[i]
+                if a in ("--embodiment-tag", "--gr00t-embodiment") and i + 1 < len(rest_srv):
+                    embodiment = rest_srv[i + 1]; i += 2
+                elif a == "--gr00t-host" and i + 1 < len(rest_srv):
+                    srv_host = rest_srv[i + 1]; i += 2
+                elif a == "--gr00t-port" and i + 1 < len(rest_srv):
+                    srv_port = int(rest_srv[i + 1]); i += 2
+                elif a == "--no-wait":
+                    wait = False; i += 1
+                elif not a.startswith("-") and model_path is None:
+                    model_path = a; i += 1
+                else:
+                    _warn(f"unknown --gr00t-serve arg: {a}"); i += 1
+            if not model_path:
+                _warn("usage: doer --gr00t-serve <model-path> "
+                      "[--embodiment-tag TAG] [--gr00t-host H] [--gr00t-port P] [--no-wait]")
+                sys.exit(2)
+            try:
+                from doer._gr00t_client import serve
+            except ImportError as e:
+                _warn(f"gr00t extras missing: {e}"); sys.exit(2)
+            try:
+                proc = serve(model_path, embodiment_tag=embodiment,
+                             host=srv_host, port=srv_port, wait_ready=wait)
+                print(f"gr00t server pid={proc.pid} on {srv_host}:{srv_port} "
+                      f"(embodiment={embodiment})", file=sys.stderr)
+                if wait:
+                    # Block until server exits or Ctrl-C
+                    try:
+                        proc.wait()
+                    except KeyboardInterrupt:
+                        proc.terminate()
+                        try: proc.wait(timeout=5)
+                        except Exception: proc.kill()
+                    sys.exit(proc.returncode or 0)
+                else:
+                    # Print pid & exit — caller manages the process
+                    sys.exit(0)
+            except Exception as e:
+                _warn(f"gr00t serve error: {e}"); sys.exit(1)
+        if head == "--gr00t":
+            # Mode B: stateless pipe client.
+            # Syntax: doer --gr00t [--gr00t-host H] [--gr00t-port P] [--embodiment-tag T] <instruction...>
+            rest_cli = _apply_gr00t_flags(argv[1:])
+            instruction = " ".join(rest_cli).strip()
+            stdin_raw = "" if sys.stdin.isatty() else sys.stdin.read().strip()
+            obs_json = stdin_raw if stdin_raw else "{}"
+            try:
+                from doer._gr00t_client import call_gr00t
+            except ImportError as e:
+                _warn(f"gr00t extras missing: {e}"); sys.exit(2)
+            try:
+                print(call_gr00t(obs_json, instruction)); sys.exit(0)
+            except Exception as e:
+                print(f"gr00t error: {e}", file=sys.stderr); sys.exit(1)
 
     # main query path
+    argv = _apply_gr00t_flags(argv)
     rest, imgs, auds, vids = _parse_argv(argv)
     stdin = "" if sys.stdin.isatty() else sys.stdin.read().strip()
     args_text = " ".join(rest).strip()
