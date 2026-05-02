@@ -740,13 +740,16 @@ def _print_usage() -> None:
         "          doer --hf-jobs omni            (cloud omni LoRA via HF Jobs)",
         "gr00t:    doer --gr00t <task>              (pipe: stdin=obs JSON → stdout=action JSON)",
         "          doer --gr00t-ping                (health-check policy server)",
+        "          doer --gr00t-status              (full status: connectivity + schema + timing)",
         "          doer --gr00t-schema              (fetch observation/action schema)",
         "          doer --gr00t-reset               (reset episode on server)",
+        "          doer --gr00t-loop <task>         (continuous control loop: camera→GR00T→action)",
+        "            --hz N --camera N --state-file F --state-key S --max-steps N --no-reset",
         "          doer --gr00t-serve <model-path>  (auto-spawn server on this host)",
         "          flags: --gr00t-host H --gr00t-port P --embodiment-tag T",
         "                 --gr00t-timeout-ms MS --gr00t-token TOKEN",
         "          env:   DOER_GR00T_HOST, DOER_GR00T_PORT, DOER_GR00T_EMBODIMENT,",
-        "                 DOER_GR00T_TIMEOUT_MS, DOER_GR00T_API_TOKEN",
+        "                 DOER_GR00T_TIMEOUT_MS, DOER_GR00T_API_TOKEN, DOER_GR00T_RETRIES",
         "          install: pip install 'doer-cli[gr00t]'",
     ]
     for l in lines: print(l, file=sys.stderr)
@@ -850,6 +853,84 @@ def cli() -> None:
                 print(reset()); sys.exit(0)
             except Exception as e:
                 _warn(f"gr00t reset error: {e}"); sys.exit(1)
+        if head == "--gr00t-status":
+            _apply_gr00t_flags(argv[1:])
+            try:
+                from doer._gr00t_client import status as _gr00t_status
+            except ImportError as e:
+                _warn(f"gr00t extras missing: {e}"); sys.exit(2)
+            try:
+                print(_gr00t_status()); sys.exit(0)
+            except Exception as e:
+                _warn(f"gr00t status error: {e}"); sys.exit(1)
+        if head == "--gr00t-loop":
+            # Mode: continuous control loop (camera → GR00T → action → stdout)
+            # Syntax: doer --gr00t-loop [flags] <instruction...>
+            #   --hz N            target frequency (default: 10)
+            #   --camera N        device index (default: 0, -1 to disable)
+            #   --camera-name S   observation key (default: webcam)
+            #   --camera-width N  (default: 640)
+            #   --camera-height N (default: 480)
+            #   --state-file F    path to JSON file with state array
+            #   --state-key S     state key name (default: joint_pos)
+            #   --max-steps N     0 = infinite (default: 0)
+            #   --no-reset        skip reset on start
+            rest_loop = _apply_gr00t_flags(argv[1:])
+            loop_hz = 10.0; loop_camera = 0; loop_cam_name = "webcam"
+            loop_cam_w = 640; loop_cam_h = 480
+            loop_state_file: str | None = None; loop_state_key = "joint_pos"
+            loop_max = 0; loop_reset = True
+            loop_positional: list[str] = []
+            i = 0
+            while i < len(rest_loop):
+                a = rest_loop[i]
+                if a == "--hz" and i + 1 < len(rest_loop):
+                    loop_hz = float(rest_loop[i + 1]); i += 2
+                elif a == "--camera" and i + 1 < len(rest_loop):
+                    loop_camera = int(rest_loop[i + 1]); i += 2
+                elif a == "--camera-name" and i + 1 < len(rest_loop):
+                    loop_cam_name = rest_loop[i + 1]; i += 2
+                elif a == "--camera-width" and i + 1 < len(rest_loop):
+                    loop_cam_w = int(rest_loop[i + 1]); i += 2
+                elif a == "--camera-height" and i + 1 < len(rest_loop):
+                    loop_cam_h = int(rest_loop[i + 1]); i += 2
+                elif a == "--state-file" and i + 1 < len(rest_loop):
+                    loop_state_file = rest_loop[i + 1]; i += 2
+                elif a == "--state-key" and i + 1 < len(rest_loop):
+                    loop_state_key = rest_loop[i + 1]; i += 2
+                elif a == "--max-steps" and i + 1 < len(rest_loop):
+                    loop_max = int(rest_loop[i + 1]); i += 2
+                elif a == "--no-reset":
+                    loop_reset = False; i += 1
+                elif not a.startswith("-"):
+                    loop_positional.append(a); i += 1
+                else:
+                    _warn(f"unknown --gr00t-loop flag: {a}"); i += 1
+            loop_instruction = " ".join(loop_positional).strip()
+            if not loop_instruction:
+                _warn("usage: doer --gr00t-loop [--hz N] [--camera N] "
+                      "[--state-file F] [--max-steps N] <instruction>")
+                sys.exit(2)
+            try:
+                from doer._gr00t_client import run_loop
+            except ImportError as e:
+                _warn(f"gr00t extras missing: {e}"); sys.exit(2)
+            try:
+                stats = run_loop(
+                    instruction=loop_instruction,
+                    target_hz=loop_hz,
+                    camera_device=loop_camera,
+                    camera_width=loop_cam_w,
+                    camera_height=loop_cam_h,
+                    camera_name=loop_cam_name,
+                    state_source=loop_state_file,
+                    state_key=loop_state_key,
+                    max_steps=loop_max,
+                    reset_on_start=loop_reset,
+                )
+                sys.exit(0)
+            except Exception as e:
+                _warn(f"gr00t loop error: {e}"); sys.exit(1)
         if head == "--gr00t-serve":
             # Mode: auto-spawn gr00t policy server on this host.
             # Syntax: doer --gr00t-serve <model-path> [--embodiment-tag <t>]

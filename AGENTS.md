@@ -92,6 +92,7 @@ Built fresh on every call by `_build_prompt()`:
 | `DOER_GR00T_EMBODIMENT`          | `new_embodiment`                                  | GR00T embodiment tag                  |
 | `DOER_GR00T_TIMEOUT_MS`          | `15000`                                           | GR00T REQ/REP timeout (ms)            |
 | `DOER_GR00T_API_TOKEN`           | *(unset)*                                         | optional server auth token            |
+| `DOER_GR00T_RETRIES`             | `3`                                               | max reconnect attempts on timeout     |
 
 ### provider auto-detect
 
@@ -365,13 +366,13 @@ DOER_PROVIDER=mlx DOER_MLX_MODEL=<mlx-repo> do "..."
 ```
 
 
-## Isaac GR00T integration (v0.8.0+)
+## Isaac GR00T integration (v0.9.0+)
 
 Doer ships an opt-in ZMQ client for [Isaac GR00T](https://github.com/NVIDIA/Isaac-GR00T)'s
-policy server. Two usage modes, both unix-flavored:
+policy server. Three usage modes, all unix-flavored:
 
 ```bash
-pip install 'doer-cli[gr00t]'   # adds pyzmq + msgpack + numpy + pillow
+pip install 'doer-cli[gr00t]'   # adds pyzmq + msgpack + numpy + pillow + opencv-headless
 ```
 
 ### Mode A — Brain mode (LLM calls `gr00t_action` as a tool)
@@ -397,10 +398,31 @@ echo '{"state.joint_pos":[0,0,0,0,0,0,0]}' | doer --gr00t "pick up cube"
 python capture_obs.py | doer --gr00t "sort blocks" | python execute_action.py
 ```
 
+### Mode C — Control loop (continuous obs→action at target Hz)
+
+```bash
+# Camera → GR00T → action JSON (10 Hz, USB webcam, runs until Ctrl+C)
+doer --gr00t-loop "pick up the red cube"
+
+# With custom settings
+doer --gr00t-loop --hz 5 --camera 0 --camera-name ego_view \
+  --state-file /tmp/robot_state.json --state-key joint_pos \
+  --max-steps 1000 "stack blocks"
+
+# No camera (state only, pipe to robot controller)
+doer --gr00t-loop --camera -1 --state-file /tmp/joints.json \
+  "move to home" > /tmp/actions.jsonl
+
+# Action output is JSON Lines (one per step):
+# {"action": {"action.joint_pos": [[...]]}, "info": {...}, "step": 0}
+# {"action": {"action.joint_pos": [[...]]}, "info": {...}, "step": 1}
+```
+
 ### Helper subcommands
 
 ```bash
-doer --gr00t-ping                       # health-check server
+doer --gr00t-ping                       # health-check server (exit 0/1)
+doer --gr00t-status                     # full status: connectivity + schema + health
 doer --gr00t-schema                     # fetch get_modality_config (JSON)
 doer --gr00t-reset                      # reset an episode
 doer --gr00t-serve <ckpt> \             # auto-spawn server on this host
@@ -422,6 +444,8 @@ env vars for that one invocation.
   `annotation.human.action.task_description` (list[str]).
 - `get_action` output: tuple `[action_dict, info_dict]`. Returned to caller as
   `{"action": {...}, "info": {...}}` JSON.
+- **Reconnect**: client auto-reconnects on ZMQ timeout (up to `DOER_GR00T_RETRIES`
+  attempts with exponential backoff). Health stats tracked per-client.
 
 ### starting the server (out-of-band, your responsibility)
 
