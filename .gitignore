@@ -10,3 +10,6 @@ site/
 .venv/
 
 *.bak
+
+# Agent working notes
+.notes/
